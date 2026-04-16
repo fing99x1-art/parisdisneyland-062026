@@ -676,7 +676,7 @@ td{padding:13px 16px;font-size:.83rem;color:var(--text);vertical-align:middle}
   </div>
   <div class="tbl-wrap" id="exp-tbl-wrap" style="border-radius:0 0 16px 16px">
     <table>
-      <thead><tr><th>類別</th><th>項目</th><th>日期</th><th>金額 (£)</th><th>埋單</th><th>備註</th><th style="text-align:center;display:none" class="th-edit">Edit</th></tr></thead>
+      <thead><tr><th>類別</th><th>項目</th><th>日期</th><th>金額 (£)</th><th>埋單</th><th>備註</th><th style="display:none" class="th-drag"></th><th style="text-align:center;display:none" class="th-edit">Edit</th></tr></thead>
       <tbody id="exp-body"></tbody>
       <tfoot><tr class="tot-row"><td colspan="2" style="font-family:'Cinzel',serif">Total</td><td><span class="tot-amt" id="s-tfoot">£0.00</span></td><td colspan="3"></td></tr></tfoot>
     </table>
@@ -1387,6 +1387,7 @@ function renderExp(){
       <td><span class="amt-d">${e.currency==='eur'?'€':'£'}${e.amt.toFixed(2)}</span></td>
       <td><span class="cbadge ${paidC[pb]}">${paidL[pb]}</span></td>
       <td style="color:var(--text2);font-size:.75rem">${e.note||''}</td>
+      <td style="display:${expEditing?'table-cell':'none'};text-align:center;cursor:grab;touch-action:none;user-select:none" class="td-drag"><span class="exp-drag-handle">⠿</span></td>
       <td style="text-align:center;display:${expEditing?'table-cell':'none'}" class="td-edit"><div style="display:flex;gap:5px;justify-content:center">
         <button class="btn btn-e btn-sm" onclick="editExpItem(${e.id})">✏️</button>
         <button class="btn btn-d btn-sm" onclick="delExp(${e.id})">🗑️</button>
@@ -1640,20 +1641,19 @@ function toggleExpEdit(btn){
   const wrap=document.getElementById('exp-tbl-wrap');
   const editing=wrap.classList.toggle('edit-mode');
   btn.textContent=editing?'✓ Done':'Edit';
+  document.querySelector('.th-drag').style.display=editing?'table-cell':'none';
   document.querySelector('.th-edit').style.display=editing?'table-cell':'none';
+  document.querySelectorAll('.td-drag').forEach(td=>td.style.display=editing?'table-cell':'none');
   document.querySelectorAll('.td-edit').forEach(td=>td.style.display=editing?'table-cell':'none');
 }
 
-// Expense table long-press drag
-// 所有 listener 掛在 document，令 #exp-tbl-wrap（overflow-x:auto）完全冇 listener
-// 瀏覽器就會正常處理觸碰 scroll，不會被 overflow 容器截取
+// Expense table drag-to-reorder
+// 用專用 handle（.td-drag，touch-action:none）觸發拖拽
+// handle 外的地方 touch-action 不受影響，scroll 正常
 function setupExpSort(){
-  const wrap=document.getElementById('exp-tbl-wrap');
   const tbody=document.getElementById('exp-body');
-  if(!wrap||!tbody)return;
-  let tDrag=null,capturedId=null,tTimer=null;
-  let startX=0,startY=0,potRow=null,potPid=null,hasMoved=false;
-  let activeDragHandler=null;
+  if(!tbody)return;
+  let tDrag=null,hasMoved=false,activeDragHandler=null;
 
   const onDragMove=e=>{
     if(!tDrag)return;
@@ -1665,24 +1665,12 @@ function setupExpSort(){
     else{if(tDrag!==tbody.lastElementChild){tbody.appendChild(tDrag);hasMoved=true;}}
   };
 
-  const startDrag=(row,pid)=>{
-    tDrag=row;capturedId=pid;potRow=null;hasMoved=false;
-    row.style.opacity='.45';row.style.outline='2px dashed var(--gold)';row.style.transform='scale(1.01)';
-    if(navigator.vibrate)navigator.vibrate(25);
-    // non-passive pointermove 令 e.preventDefault() 生效 → 阻止拖拽期間 scroll
-    activeDragHandler=onDragMove;
-    document.addEventListener('pointermove',activeDragHandler,{passive:false});
-  };
-
   const endDrag=()=>{
-    clearTimeout(tTimer);tTimer=null;potRow=null;
-    // 移除 non-passive listener → 瀏覽器立即恢復正常 scroll
     if(activeDragHandler){
       document.removeEventListener('pointermove',activeDragHandler,{passive:false});
       activeDragHandler=null;
     }
     if(!tDrag)return;
-    capturedId=null;
     tDrag.style.opacity='';tDrag.style.outline='';tDrag.style.transform='';
     if(hasMoved){
       const newOrder=[...tbody.querySelectorAll('tr[draggable]')].map(tr=>{
@@ -1693,37 +1681,27 @@ function setupExpSort(){
     tDrag=null;hasMoved=false;
   };
 
-  // 所有常駐 listener 掛在 document（passive），不影響 wrap 的 scroll 行為
-  document.addEventListener('pointerdown',e=>{
-    if(!wrap.contains(e.target))return; // 只處理 exp 表格內的觸碰
+  // 監聽 handle cell（td-drag）的 pointerdown
+  // handle 本身有 touch-action:none（inline style），保證 pointer event 可靠觸發
+  tbody.addEventListener('pointerdown',e=>{
     if(e.button>0)return;
-    const row=e.target.closest('tr[draggable]');if(!row||e.target.closest('button'))return;
-    startX=e.clientX;startY=e.clientY;
-    potRow=row;potPid=e.pointerId;
-    if(e.pointerType==='mouse'){
-      // 滑鼠：移動 > 4px 才啟動
-    }else{
-      tTimer=setTimeout(()=>{if(potRow)startDrag(potRow,potPid);},500);
-    }
-  },{passive:true});
-
-  document.addEventListener('pointermove',e=>{
-    if(!potRow&&!tDrag)return;
-    const dx=Math.abs(e.clientX-startX),dy=Math.abs(e.clientY-startY);
-    if(tTimer&&(dx>10||dy>10)){clearTimeout(tTimer);tTimer=null;potRow=null;}
-    if(!potRow||tDrag)return;
-    if(e.pointerType==='mouse'&&e.buttons===1&&(dx>4||dy>4))startDrag(potRow,e.pointerId);
-  },{passive:true});
-
-  document.addEventListener('pointerup',e=>{if(potRow||tDrag)endDrag();});
-  document.addEventListener('pointercancel',e=>{
-    if(!potRow&&!tDrag)return;
-    clearTimeout(tTimer);tTimer=null;potRow=null;
-    if(activeDragHandler){document.removeEventListener('pointermove',activeDragHandler,{passive:false});activeDragHandler=null;}
-    if(tDrag){tDrag.style.opacity='';tDrag.style.outline='';tDrag.style.transform='';tDrag=null;}
-    capturedId=null;hasMoved=false;
+    if(!e.target.closest('.td-drag'))return; // 只有按 handle 才啟動
+    const row=e.target.closest('tr[draggable]');if(!row)return;
+    e.preventDefault(); // 防止 text selection
+    tDrag=row;hasMoved=false;
+    row.style.opacity='.45';row.style.outline='2px dashed var(--gold)';row.style.transform='scale(1.01)';
+    if(navigator.vibrate)navigator.vibrate(20);
+    activeDragHandler=onDragMove;
+    document.addEventListener('pointermove',activeDragHandler,{passive:false});
   });
-  document.addEventListener('contextmenu',e=>{if(tDrag&&wrap.contains(e.target))e.preventDefault();});
+
+  document.addEventListener('pointerup',e=>{if(tDrag)endDrag();});
+  document.addEventListener('pointercancel',e=>{
+    if(!tDrag)return;
+    if(activeDragHandler){document.removeEventListener('pointermove',activeDragHandler,{passive:false});activeDragHandler=null;}
+    tDrag.style.opacity='';tDrag.style.outline='';tDrag.style.transform='';
+    tDrag=null;hasMoved=false;
+  });
 }
 
 // Init
