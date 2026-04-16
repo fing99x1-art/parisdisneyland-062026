@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🗼 Paris Trip · June 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#fff5fb;--bg2:#fce7f9;--card:#ffffff;--card2:#fdf4ff;
+  --gold:#c026d3;--gold2:#a21caf;--gold3:rgba(192,38,211,.12);
+  --purple:#7c3aed;--purple2:#a855f7;
+  --text:#2d0f5c;--text2:rgba(45,15,92,.5);
+  --border:rgba(192,38,211,.22);--border2:rgba(167,139,250,.14);
+  --glow:0 0 24px rgba(192,38,211,.15);
+  --shadow:0 4px 32px rgba(139,92,246,.1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#c4cdef 0%,#cdbae8 100%) fixed;background-attachment:fixed;color:var(--text);line-height:1.6;min-height:100vh}
+
+/* ── SOFT SHIMMER ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.18) 0%,transparent 50%),
+    radial-gradient(ellipse at 80% 80%,rgba(255,255,255,.12) 0%,transparent 40%);
+}
+
+/* ── HERO ── */
+.hero{
+  position:relative;z-index:1;
+  background:linear-gradient(160deg,#ede9fe 0%,#f3e8ff 35%,#fae8ff 65%,#fdf2f8 100%);
+  padding:70px 20px 60px;text-align:center;overflow:hidden;
+}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 0%,rgba(192,38,211,.06) 0%,transparent 65%),
+             radial-gradient(ellipse at 20% 100%,rgba(139,92,246,.05) 0%,transparent 50%);
+}
+.castle{font-size:56px;position:relative;animation:float 5s ease-in-out infinite;margin-bottom:10px;display:block}
+@keyframes float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-10px) scale(1.03)}}
+.hero h1{
+  font-family:'Cinzel',serif;font-size:clamp(2.4rem,6vw,4rem);
+  background:none;-webkit-text-fill-color:#2d0f5c;color:#2d0f5c;
+  font-weight:700;letter-spacing:3px;position:relative;margin-bottom:6px;
+}
+.hero-sub{
+  font-size:.78rem;letter-spacing:6px;text-transform:uppercase;
+  color:#5b21b6;font-weight:500;position:relative;margin-bottom:22px;
+}
+.hero-badges{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;position:relative}
+.badge{
+  background:rgba(109,40,217,.08);border:1px solid rgba(109,40,217,.2);
+  color:#4c1d95;padding:7px 16px;border-radius:100px;
+  font-size:.78rem;font-weight:500;letter-spacing:.5px;
+}
+.hero-sep{color:rgba(109,40,217,.35);font-size:.9rem}
+
+/* ── TRAIN BANNER ── */
+.train-banner{
+  position:relative;z-index:1;
+  background:rgba(255,255,255,.55);
+  backdrop-filter:blur(12px);
+  border-top:1px solid rgba(255,255,255,.6);border-bottom:1px solid rgba(255,255,255,.6);
+}
+.train-grid{display:grid;grid-template-columns:1fr 1fr;max-width:960px;margin:0 auto}
+.train-leg{padding:18px 28px;display:flex;align-items:center;gap:14px;border-right:1px solid var(--border2)}
+.train-leg:last-child{border-right:none}
+.t-ico{font-size:1.6rem;flex-shrink:0}
+.t-lbl{font-size:.6rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:3px}
+.t-route{font-family:'Cinzel',serif;font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:3px}
+.t-times{font-size:.75rem;color:var(--text2);display:flex;gap:6px;align-items:center}
+.t-sep{color:var(--gold);opacity:.7}
+
+/* ── NAV ── */
+.day-nav{
+  position:sticky;top:0;z-index:100;
+  background:rgba(255,255,255,.65);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,255,255,.7);padding:0 16px;display:flex;justify-content:center;
+  box-shadow:0 2px 16px rgba(160,100,220,.12);
+}
+.day-tabs{
+  display:flex;gap:4px;padding:10px 0;max-width:900px;
+  width:100%;overflow-x:auto;scrollbar-width:none;
+}
+.day-tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex-shrink:0;padding:8px 16px;border:1px solid transparent;border-radius:100px;
+  background:transparent;cursor:pointer;font-family:'Inter',sans-serif;
+  font-size:.78rem;font-weight:500;color:var(--text2);transition:all .2s;white-space:nowrap;
+}
+.tab:hover{border-color:rgba(255,215,0,.3);color:var(--gold);background:rgba(255,215,0,.06)}
+.tab.active{
+  background:linear-gradient(135deg,rgba(255,215,0,.18),rgba(255,215,0,.08));
+  color:var(--gold);border-color:rgba(255,215,0,.4);
+  box-shadow:0 0 14px rgba(255,215,0,.12);
+}
+
+/* ── MAIN ── */
+.main{max-width:1100px;margin:0 auto;padding:36px 20px 80px;position:relative;z-index:1}
+.day-sec{display:none}
+.day-sec.active{display:block}
+
+.day-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:26px}
+.day-num{
+  background:linear-gradient(135deg,#a21caf,#7c3aed);color:#fff;
+  border-radius:14px;padding:10px 16px;text-align:center;flex-shrink:0;min-width:72px;
+  box-shadow:0 0 20px rgba(162,28,175,.3);border:1px solid rgba(192,38,211,.3);
+}
+.day-n{font-size:.55rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:2px}
+.day-d{font-family:'Cinzel',serif;font-size:1.7rem;font-weight:700;line-height:1;display:block}
+.day-m{font-size:.65rem;color:rgba(255,255,255,.6);display:block;margin-top:2px}
+.day-title h2{font-family:'Cinzel',serif;font-size:1.65rem;margin-bottom:4px;
+  color:#fff;text-shadow:0 2px 12px rgba(100,30,150,.4);}
+.day-title .wday{font-size:.75rem;color:rgba(255,255,255,.75);letter-spacing:2px;text-transform:uppercase}
+
+/* ── GRID ── */
+.grid{display:grid;grid-template-columns:1fr 1.1fr;gap:20px;align-items:start}
+@media(max-width:768px){
+  .grid{grid-template-columns:1fr}
+  .train-grid{grid-template-columns:1fr}
+  .train-leg{border-right:none;border-bottom:1px solid var(--border2)}
+  .train-leg:last-child{border-bottom:none}
+  .map-wrap{position:static}
+}
+@media(max-width:600px){
+  .main{padding:24px 12px 60px}
+  .card{padding:12px 12px}
+  .itin-row{gap:5px;padding:8px 4px}
+  .itin-tag{margin-top:2px}
+  .edit-bar{margin-bottom:10px}
+  .btn-new{font-size:.68rem;padding:5px 10px}
+  .btn-toggle{font-size:.68rem;padding:5px 10px}
+}
+.col{display:flex;flex-direction:column;gap:14px}
+
+/* ── CARDS ── */
+.card{
+  background:var(--card);border-radius:16px;padding:18px 20px;
+  border:1px solid var(--border2);box-shadow:var(--shadow);
+  transition:border-color .2s,box-shadow .2s;
+}
+.card:hover{border-color:rgba(255,215,0,.25);box-shadow:0 4px 32px rgba(255,215,0,.08)}
+.card-t{
+  font-family:'Cinzel',serif;font-size:.88rem;color:var(--gold);
+  margin-bottom:14px;display:flex;align-items:center;gap:8px;letter-spacing:.5px;
+}
+.card-t::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Transport card */
+.card-tr{background:linear-gradient(135deg,#faf5ff,#f3e8ff);border-color:rgba(167,139,250,.3)}
+.card-tr:hover{border-color:rgba(192,38,211,.4);box-shadow:0 4px 32px rgba(192,38,211,.1)}
+.tr-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border2)}
+.tr-row:last-child{border-bottom:none;padding-bottom:0}
+.tr-time{font-family:'Cinzel',serif;font-size:1.15rem;font-weight:600;color:var(--gold);min-width:54px}
+.tr-stn{flex:1;font-size:.83rem;color:var(--text)}
+.tr-stn small{font-size:.7rem;color:var(--text2);display:block;margin-top:1px}
+.tr-line{width:2px;height:22px;background:linear-gradient(var(--gold),rgba(255,215,0,.15));border-radius:1px;margin-left:20px}
+
+/* Disney card */
+.card-dis{
+  background:linear-gradient(135deg,#3b0764,#4c1d95,#3b0764);
+  border:1px solid rgba(168,85,247,.4);text-align:center;padding:26px 20px;
+  box-shadow:0 8px 32px rgba(124,58,237,.35);
+}
+.dis-ico{font-size:2.6rem;margin-bottom:10px;display:block;animation:float 4s ease-in-out infinite}
+.card-dis h3{font-family:'Cinzel',serif;font-size:1.35rem;color:var(--gold);margin-bottom:6px}
+.card-dis p{color:rgba(255,255,255,.7);font-size:.8rem}
+
+/* ── PLACE LIST ── */
+.plist{list-style:none;display:flex;flex-direction:column;gap:4px}
+.pitem{
+  display:flex;align-items:flex-start;gap:10px;padding:9px 10px;
+  border-radius:10px;transition:background .15s;cursor:default;
+}
+.pitem:hover{background:rgba(192,38,211,.05)}
+.pico{font-size:1rem;flex-shrink:0;margin-top:2px}
+.pinfo{flex:1;min-width:0}
+.pname{font-weight:500;font-size:.85rem;color:var(--text);margin-bottom:1px}
+.pdesc{font-size:.73rem;color:var(--text2)}
+.mlink{
+  display:inline-flex;align-items:center;gap:3px;font-size:.68rem;
+  color:var(--gold);text-decoration:none;opacity:.6;transition:opacity .15s;margin-top:2px;
+}
+.mlink:hover{opacity:1}
+.ptag{
+  display:inline-block;padding:2px 8px;border-radius:100px;
+  font-size:.62rem;font-weight:600;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;
+}
+.th{background:rgba(124,58,237,.25);color:#c4b5fd}
+.tf{background:rgba(255,215,0,.15);color:var(--gold2)}
+.ta{background:rgba(52,211,153,.15);color:#6ee7b7}
+.tc{background:rgba(244,114,182,.15);color:#f9a8d4}
+.ttr{background:rgba(96,165,250,.15);color:#93c5fd}
+
+/* section divider inside card */
+.sec-div{
+  margin:12px 0;padding-top:12px;border-top:1px solid var(--border);
+  font-family:'Cinzel',serif;font-size:.72rem;color:var(--gold);letter-spacing:1px;
+  display:flex;align-items:center;gap:8px;
+}
+.sec-div::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── CLICKABLE NAME ── */
+.itin-name-link{
+  font-weight:500;font-size:.85rem;color:var(--text);text-decoration:none;
+  border-bottom:1px dotted rgba(192,38,211,.35);transition:color .15s,border-color .15s;display:inline;
+}
+.itin-name-link:hover{color:var(--gold);border-bottom-color:var(--gold)}
+.itin-name-plain{font-weight:500;font-size:.85rem;color:var(--text)}
+
+/* ── MAP ── */
+.map-wrap{
+  background:var(--card);border-radius:16px;overflow:hidden;
+  border:1px solid var(--border2);box-shadow:var(--shadow);
+  position:sticky;top:68px;
+}
+.lf-map{width:100%;height:440px;border-radius:0;display:block}
+.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 4px 20px rgba(139,92,246,.2)!important;border:1px solid rgba(192,38,211,.2)!important}
+.leaflet-popup-content{margin:10px 14px!important;font-family:'Inter',sans-serif}
+.leaflet-attribution-flag{display:none!important}
+.map-hd{
+  padding:13px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+}
+.map-hd h3{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);letter-spacing:.5px}
+.map-filters{
+  display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px;
+  border-bottom:1px solid var(--border);background:rgba(255,255,255,.6);
+}
+.mf-btn{
+  padding:4px 13px;border-radius:100px;font-size:.7rem;font-weight:600;
+  border:1.5px solid var(--border);background:transparent;color:var(--text2);
+  cursor:pointer;transition:all .15s;white-space:nowrap;font-family:'Inter',sans-serif;
+}
+.mf-btn:hover{border-color:var(--gold);color:var(--gold);}
+.mf-btn.active{background:var(--gold3);border-color:var(--gold);color:var(--gold);}
+.map-frame{width:100%;height:440px;border:0;display:block}
+.map-links{padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px}
+.map-btn{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 12px;
+  background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);
+  border-radius:100px;text-decoration:none;font-size:.7rem;
+  color:var(--gold);transition:all .15s;font-family:'Inter',sans-serif;
+}
+.map-btn:hover{background:rgba(255,215,0,.15);border-color:rgba(255,215,0,.4)}
+
+/* ── ITINERARY EDIT ── */
+.edit-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;
+}
+.edit-bar h4{font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold);letter-spacing:.5px}
+.btn{
+  padding:7px 14px;border-radius:100px;border:none;cursor:pointer;
+  font-family:'Inter',sans-serif;font-size:.75rem;font-weight:500;
+  transition:all .2s;display:inline-flex;align-items:center;gap:5px;
+}
+.btn-add{
+  background:linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,184,0,.1));
+  color:var(--gold);border:1px solid rgba(255,215,0,.3);
+}
+.btn-add:hover{background:linear-gradient(135deg,rgba(255,215,0,.3),rgba(255,184,0,.2));box-shadow:0 0 12px rgba(255,215,0,.15)}
+.btn-d{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.2)}
+.btn-d:hover{background:rgba(239,68,68,.25)}
+.btn-e{background:rgba(96,165,250,.12);color:#93c5fd;border:1px solid rgba(96,165,250,.2)}
+.btn-e:hover{background:rgba(96,165,250,.22)}
+.btn-sm{padding:4px 9px;font-size:.68rem}
+.btn-p{
+  background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;font-weight:600;
+  box-shadow:0 2px 12px rgba(255,215,0,.3);
+}
+.btn-p:hover{box-shadow:0 4px 18px rgba(255,215,0,.5);transform:translateY(-1px)}
+.btn-cn{background:rgba(255,255,255,.06);color:var(--text2);border:1px solid var(--border2)}
+.btn-cn:hover{background:rgba(255,255,255,.1)}
+
+/* Itinerary rows */
+.itin-list{display:flex;flex-direction:column;gap:4px}
+.itin-row{
+  display:flex;align-items:flex-start;gap:9px;padding:9px 10px;
+  border-radius:10px;background:rgba(255,255,255,.03);border:1px solid transparent;
+  transition:all .15s;touch-action:none;
+}
+.itin-row:hover{background:rgba(192,38,211,.05);border-color:rgba(192,38,211,.15)}
+.itin-ico{font-size:.95rem;flex-shrink:0;margin-top:2px}
+.itin-info{flex:1;min-width:0}
+.itin-name{font-size:.85rem;font-weight:500;color:var(--text)}
+.itin-detail{font-size:.72rem;color:var(--text2);margin-top:1px}
+.itin-maplink{display:inline-flex;align-items:center;gap:3px;font-size:.67rem;
+  color:var(--gold);text-decoration:none;opacity:.55;transition:opacity .15s;margin-top:2px}
+.itin-maplink:hover{opacity:1}
+.itin-acts{display:none;gap:4px;flex-shrink:0}
+.card.edit-mode .itin-acts{display:flex;opacity:1}
+.drag-handle{display:none}
+.itin-row.dragging{
+  opacity:.45;border:1.5px dashed var(--gold)!important;
+  background:rgba(192,38,211,.08)!important;
+  transform:scale(1.02);box-shadow:0 8px 24px rgba(0,0,0,.13);
+  will-change:transform;position:relative;z-index:10;
+  transition:none!important;
+}
+.itin-tag{display:inline-block;padding:1px 7px;border-radius:100px;
+  font-size:.6rem;font-weight:600;flex-shrink:0;margin-top:3px}
+.itin-time{font-size:.85rem;font-weight:500;color:var(--text);flex-shrink:0;font-family:'Inter',sans-serif}
+
+/* ── TIPS ── */
+.tips-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:14px}
+.tip-card{background:var(--card);border:1px solid var(--border2);border-radius:14px;padding:16px 18px;
+  border-left:3px solid var(--gold);box-shadow:var(--shadow)}
+.tip-card-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.tip-card-hd h3{font-size:.82rem;font-weight:700;color:var(--text);letter-spacing:.3px;margin:0}
+.tip-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.tip-list li{font-size:.75rem;color:var(--text2);line-height:1.45;padding-left:2px}
+.tip-list li strong{color:var(--text);font-weight:600}
+.tip-list li span.tip-tag{display:inline-block;padding:1px 6px;border-radius:20px;
+  font-size:.62rem;font-weight:600;background:var(--gold3);color:var(--gold);margin-right:4px}
+
+/* Paste area */
+.paste-area{
+  margin-top:10px;padding:10px 12px;
+  background:rgba(192,38,211,.04);border:1px dashed rgba(192,38,211,.2);
+  border-radius:12px;
+}
+.paste-area input{
+  width:100%;background:transparent;border:none;outline:none;
+  font-family:'Inter',sans-serif;font-size:.8rem;color:var(--text);
+  placeholder-color:var(--text2);
+}
+.paste-area input::placeholder{color:rgba(232,226,255,.35)}
+.paste-area label{display:block;font-size:.65rem;color:var(--text2);margin-bottom:6px;letter-spacing:.5px;text-transform:uppercase}
+
+/* ── EXPENSE ── */
+.exp-sec{margin-top:56px;padding-top:36px;border-top:2px solid var(--border)}
+.exp-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px}
+.exp-hd h2{font-family:'Cinzel',serif;font-size:1.8rem;
+  background:linear-gradient(135deg,var(--purple),var(--gold));-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text;}
+.exp-ctrl{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.split-ctl{
+  display:flex;align-items:center;gap:8px;background:#fdf4ff;
+  border:1px solid var(--border);border-radius:10px;padding:7px 14px;font-size:.8rem;color:var(--text2);
+}
+.split-ctl select{
+  border:none;background:transparent;font-family:'Inter',sans-serif;
+  font-size:.8rem;color:var(--gold);font-weight:600;cursor:pointer;outline:none;
+}
+.sum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin-bottom:22px}
+.sum-card{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:16px 18px;text-align:center;
+  box-shadow:0 0 20px rgba(255,215,0,.06);
+}
+.sum-lbl{font-size:.6rem;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
+.sum-amt{font-family:'Cinzel',serif;font-size:1.4rem;color:var(--gold);font-weight:700}
+.sum-sub{font-size:.65rem;color:var(--text2);margin-top:3px}
+.tbl-wrap{background:var(--card);border-radius:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;min-width:520px}
+thead tr{background:linear-gradient(90deg,#f3e8ff,#fce7f3)}
+thead th{padding:13px 16px;text-align:left;font-size:.65rem;font-weight:500;
+  letter-spacing:2px;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border2);transition:background .15s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(192,38,211,.03)}
+td{padding:13px 16px;font-size:.83rem;color:var(--text);vertical-align:middle}
+.amt-d{font-variant-numeric:tabular-nums;font-weight:600;color:var(--gold)}
+.cbadge{padding:2px 9px;border-radius:100px;font-size:.65rem;font-weight:600;white-space:nowrap}
+.cc-tr{background:rgba(96,165,250,.15);color:#3b82f6}
+.cc-ho{background:rgba(124,58,237,.2);color:#7c3aed}
+.cc-ac{background:rgba(52,211,153,.15);color:#059669}
+.cc-fo{background:rgba(192,38,211,.12);color:var(--gold2)}
+.cc-ot{background:rgba(45,15,92,.06);color:var(--text2)}
+.cc-an{background:rgba(167,139,250,.2);color:#6d28d9}
+.cc-ol{background:rgba(244,114,182,.18);color:#be185d}
+.cc-sp{background:rgba(96,165,250,.13);color:#2563eb}
+.tot-row{background:rgba(192,38,211,.06);border-top:1px solid rgba(192,38,211,.25) !important}
+.tot-row td{font-weight:700;color:var(--gold)}
+.tot-amt{font-family:'Cinzel',serif;font-size:1.15rem;color:var(--gold)}
+
+/* ── MODAL ── */
+.overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+  z-index:1000;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px);
+}
+.overlay.open{display:flex}
+.modal{
+  background:linear-gradient(135deg,#ffffff,#fdf4ff);
+  border:1px solid rgba(192,38,211,.2);border-radius:20px;padding:28px;
+  max-width:440px;width:100%;box-shadow:0 20px 60px rgba(139,92,246,.15),0 0 40px rgba(192,38,211,.08);
+  animation:up .22s ease;
+}
+@keyframes up{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal h3{font-family:'Cinzel',serif;font-size:1.2rem;color:var(--gold);margin-bottom:20px;letter-spacing:.5px}
+.fg{margin-bottom:13px}
+.fg label{display:block;font-size:.68rem;font-weight:500;color:var(--text2);
+  margin-bottom:5px;letter-spacing:.5px;text-transform:uppercase}
+.fg input,.fg select,.fg textarea{
+  width:100%;background:rgba(192,38,211,.04);border:1px solid var(--border);
+  border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;
+  font-size:.85rem;color:var(--text);outline:none;transition:border-color .15s;
+}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:rgba(192,38,211,.5);background:rgba(192,38,211,.06)}
+.fg select option{background:#fff;color:var(--text)}
+.fg textarea{resize:vertical;min-height:60px}
+.modal-act{display:flex;gap:9px;justify-content:flex-end;margin-top:20px}
+.paste-hint{font-size:.68rem;color:rgba(192,38,211,.7);margin-top:4px;display:none}
+.paste-hint.show{display:block}
+.parsed-badge{
+  display:inline-block;margin-top:5px;padding:3px 10px;
+  background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);
+  border-radius:100px;font-size:.68rem;color:#6ee7b7;
+}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <span class="castle">🏰</span>
+  <h1>Paris 2026</h1>
+  <p class="hero-sub">✨ A Magical Parisian Adventure ✨</p>
+  <div class="hero-badges">
+    <span class="badge">🇬🇧 London</span>
+    <span class="hero-sep">✦</span>
+    <span class="badge">⭐ 15 – 18 June 2026</span>
+    <span class="hero-sep">✦</span>
+    <span class="badge">🇫🇷 Paris</span>
+  </div>
+</header>
+
+<!-- TRAIN BANNER -->
+<div class="train-banner">
+  <div class="train-grid">
+    <div class="train-leg">
+      <div class="t-ico">🚄</div>
+      <div>
+        <div class="t-lbl">Outbound · 15 June</div>
+        <div class="t-route">London St Pancras → Paris Gare du Nord</div>
+        <div class="t-times"><span>11:31</span><span class="t-sep">→</span><span>14:59</span><span class="t-sep">·</span><span>2h 28m</span></div>
+      </div>
+    </div>
+    <div class="train-leg">
+      <div class="t-ico">🚄</div>
+      <div>
+        <div class="t-lbl">Return · 18 June</div>
+        <div class="t-route">Paris Gare du Nord → London St Pancras</div>
+        <div class="t-times"><span>21:02</span><span class="t-sep">→</span><span>22:30</span><span class="t-sep">·</span><span>2h 28m (BST +1hr)</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="day-nav">
+  <div class="day-tabs">
+    <button class="tab active" onclick="gotoDay(1)">🗼 Day 1 · 15/6</button>
+    <button class="tab" onclick="gotoDay(2)">🏰 Day 2 · 16/6</button>
+    <button class="tab" onclick="gotoDay(3)">✨ Day 3 · 17/6</button>
+    <button class="tab" onclick="gotoDay(4)">✈️ Day 4 · 18/6</button>
+    <button class="tab" onclick="gotoExp()">💰 支出</button>
+    <button class="tab" onclick="gotoTips()">💡 提示</button>
+  </div>
+</nav>
+
+<main class="main">
+
+<!-- ══ DAY 1 ══ -->
+<section class="day-sec active" id="d1">
+  <div class="day-head">
+    <div class="day-num"><span class="day-n">Day</span><span class="day-d">1</span><span class="day-m">Jun 15</span></div>
+    <div class="day-title"><h2>抵達巴黎 🗼</h2><div class="wday">Monday · 到著 Paris · 探索</div></div>
+  </div>
+  <div class="grid">
+    <div class="col">
+      <!-- Editable itinerary -->
+      <div class="card">
+        <div class="edit-bar">
+          <div class="card-t" style="margin-bottom:0;flex:1">📋 行程</div>
+          <button class="btn btn-add btn-sm" onclick="openAdd(1)">Add</button>
+          <button class="btn btn-add btn-sm btn-toggle" onclick="toggleEdit(this)">Edit</button>
+        </div>
+        <div class="itin-list" id="itin-1"></div>
+      </div>
+
+      <!-- Dynamic restaurant card Day 1 -->
+      <div class="card">
+        <div class="edit-bar">
+          <div class="card-t" style="margin-bottom:0;flex:1">🍽️ 餐廳</div>
+          <button class="btn btn-add btn-sm" onclick="openRestAdd(1)">Add</button>
+          <button class="btn btn-add btn-sm btn-toggle" onclick="toggleEdit(this)">Edit</button>
+        </div>
+        <div class="itin-list" id="rest-1"></div>
+      </div>
+    </div>
+
+    <!-- MAP Day 1 (Leaflet) -->
+    <div class="map-wrap">
+      <div class="map-hd"><span>🗺️</span><h3>Paris · Day 1 地點</h3></div>
+      <div class="map-filters" id="mf-1">
+        <button class="mf-btn active" onclick="filterMap(1,'all')" data-cat="all">🗺️ 全部</button>
+        <button class="mf-btn" onclick="filterMap(1,'hotel')" data-cat="hotel">🏨 住宿</button>
+        <button class="mf-btn" onclick="filterMap(1,'food')" data-cat="food">🍽️ 餐廳</button>
+        <button class="mf-btn" onclick="filterMap(1,'sight')" data-cat="sight">🎡 景點</button>
+        <button class="mf-btn" onclick="filterMap(1,'transport')" data-cat="transport">🚄 交通</button>
+      </div>
+      <div id="map-1" class="lf-map"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ DAY 2 ══ -->
+<section class="day-sec" id="d2">
+  <div class="day-head">
+    <div class="day-num" style="background:linear-gradient(135deg,#6d28d9,#4c1d95)"><span class="day-n">Day</span><span class="day-d">2</span><span class="day-m">Jun 16</span></div>
+    <div class="day-title"><h2>Disneyland Paris 🏰</h2><div class="wday">Tuesday · Magic Kingdom Day 1</div></div>
+  </div>
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <div class="edit-bar">
+          <div class="card-t" style="margin-bottom:0;flex:1">📋 行程</div>
+          <button class="btn btn-add btn-sm" onclick="openAdd(2)">Add</button>
+          <button class="btn btn-add btn-sm btn-toggle" onclick="toggleEdit(this)">Edit</button>
+        </div>
+        <div class="itin-list" id="itin-2"></div>
+      </div>
+      <div class="card-dis card">
+        <span class="dis-ico">🏰</span>
+        <h3>Disneyland Paris</h3>
+        <p>全日遊玩 · 享受魔法時光！</p>
+        <p style="margin-top:8px;font-size:.75rem">記得前一晚買好入園零食 🛒</p>
+      </div>
+      <!-- Dynamic restaurant card Day 2 -->
+      <div class="card">
+        <div class="edit-bar">
+          <div class="card-t" style="margin-bottom:0;flex:1">🍽️ 餐廳</div>
+          <button class="btn btn-add btn-sm" onclick="openRestAdd(2)">Add</button>
+          <button class="btn btn-add btn-sm btn-toggle" onclick="toggleEdit(this)">Edit</button>
+        </div>
+        <div class="itin-list" id="rest-2"></div>
+      </div>
+    </div>
+    <div class="map-wrap">
+      <div class="map-hd"><span>🗺️</span><h3>Disneyland Paris 範圍</h3></div>
+      <div class="map-filters" id="mf-2">
+        <button class="mf-btn active" onclick="filterMap(2,'all')" data-cat="all">🗺️ 全部</button>
+        <button class="mf-btn" onclick="filterMap(2,'hotel')" data-cat="hotel">🏨 住宿</button>
+        <button class="mf-btn" onclick="filterMap(2,'sight')" data-cat="sight">🎡 景點</button>
+        <button class="mf-btn" onclick="filterMap(2,'shop')" data-cat="shop">🛍️ 購物</button>
+      </div>
+      <div id="map-2" class="lf-map"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ DAY 3 ══ -->
+<section class="day-sec" id="d3">
+  <div class="day-head">
+    <div class="day-num" style="background:linear-gradient(135deg,#6d28d9,#4c1d95)"><span class="day-n">Day</span><span class="day-d">3</span><span class="day-m">Jun 17</span></div>
+    <div class="day-title"><h2>Disneyland Day 2 🎠✨</h2><div class="wday">Wednesday · Walt Disney Studios</div></div>
+  </div>
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <div class="edit-bar">
+          <div class="card-t" style="margin-bottom:0;flex:1">📋 行程</div>
+          <button class="btn btn-add btn-sm" onclick="openAdd(3)">Add</button>
+          <button class="btn btn-add btn-sm btn-toggle" onclick="toggleEdit(this)">Edit</button>
+        </div>
+        <div class="itin-list" id="itin-3"></div>
+      </div>
+      <div class="card-dis card">
+        <span class="dis-ico">🎠</span>
+        <h3>Walt Disney Studios Park</h3>
+        <p>Avengers Campus · Tower of Terror · Crush's Coaster</p>
+        <p style="margin-top:8px;font-size:.75rem">查好晚上 Illuminations 焰火時間 🎆</p>
+      </div>
+      <!-- Dynamic restaurant card Day 3 -->
+      <div class="card">
+        <div class="edit-bar">
+          <div class="card-t" style="margin-bottom:0;flex:1">🍽️ 餐廳</div>
+          <button class="btn btn-add btn-sm" onclick="openRestAdd(3)">Add</button>
+          <button class="btn btn-add btn-sm btn-toggle" onclick="toggleEdit(this)">Edit</button>
+        </div>
+        <div class="itin-list" id="rest-3"></div>
+      </div>
+    </div>
+    <div class="map-wrap">
+      <div class="map-hd"><span>🗺️</span><h3>Walt Disney Studios 範圍</h3></div>
+      <div class="map-filters" id="mf-3">
+        <button class="mf-btn active" onclick="filterMap(3,'all')" data-cat="all">🗺️ 全部</button>
+        <button class="mf-btn" onclick="filterMap(3,'sight')" data-cat="sight">🎡 景點</button>
+        <button class="mf-btn" onclick="filterMap(3,'shop')" data-cat="shop">🛍️ 購物</button>
+      </div>
+      <div id="map-3" class="lf-map"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ DAY 4 ══ -->
+<section class="day-sec" id="d4">
+  <div class="day-head">
+    <div class="day-num" style="background:linear-gradient(135deg,#be185d,#9333ea)"><span class="day-n">Day</span><span class="day-d">4</span><span class="day-m">Jun 18</span></div>
+    <div class="day-title"><h2>Au Revoir Paris 👋🇫🇷</h2><div class="wday">Thursday · 最後早晨 · 回倫敦</div></div>
+  </div>
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <div class="edit-bar">
+          <div class="card-t" style="margin-bottom:0;flex:1">📋 行程</div>
+          <button class="btn btn-add btn-sm" onclick="openAdd(4)">Add</button>
+          <button class="btn btn-add btn-sm btn-toggle" onclick="toggleEdit(this)">Edit</button>
+        </div>
+        <div class="itin-list" id="itin-4"></div>
+      </div>
+      <!-- Dynamic restaurant card Day 4 -->
+      <div class="card">
+        <div class="edit-bar">
+          <div class="card-t" style="margin-bottom:0;flex:1">🍽️ 餐廳</div>
+          <button class="btn btn-add btn-sm" onclick="openRestAdd(4)">Add</button>
+          <button class="btn btn-add btn-sm btn-toggle" onclick="toggleEdit(this)">Edit</button>
+        </div>
+        <div class="itin-list" id="rest-4"></div>
+      </div>
+      <div class="card card-tr">
+        <div class="card-t">🚄 回程 Eurostar</div>
+        <div class="tr-row"><div class="tr-time">21:02</div><div class="tr-stn">Paris Gare du Nord<small>Eurostar · 提前 90 分鐘 check-in</small></div></div>
+        <div style="display:flex;align-items:center;padding:6px 0"><div class="tr-line"></div><span style="font-size:.68rem;color:var(--text2);margin-left:8px">2 小時 28 分鐘 (BST +1hr)</span></div>
+        <div class="tr-row"><div class="tr-time">22:30</div><div class="tr-stn">London St Pancras International<small>回到倫敦 🇬🇧</small></div></div>
+      </div>
+    </div>
+    <div class="map-wrap">
+      <div class="map-hd"><span>🗺️</span><h3>Paris Gare du Nord</h3></div>
+      <div class="map-filters" id="mf-4">
+        <button class="mf-btn active" onclick="filterMap(4,'all')" data-cat="all">🗺️ 全部</button>
+        <button class="mf-btn" onclick="filterMap(4,'hotel')" data-cat="hotel">🏨 住宿</button>
+        <button class="mf-btn" onclick="filterMap(4,'transport')" data-cat="transport">🚄 交通</button>
+      </div>
+      <div id="map-4" class="lf-map"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ EXPENSES ══ -->
+<section class="exp-sec" id="expenses">
+  <div class="exp-hd">
+    <h2>💰 行程支出</h2>
+  </div>
+  <div class="sum-grid">
+    <div class="sum-card" style="border-color:rgba(37,99,235,.2)"><div class="sum-lbl">💷 英鎊總計</div><div class="sum-amt" id="s-gbp" style="color:#1d4ed8">£0.00</div><div class="sum-sub">GBP 項目</div></div>
+    <div class="sum-card" style="border-color:rgba(5,150,105,.2)"><div class="sum-lbl">💶 歐元總計</div><div class="sum-amt" id="s-eur" style="color:#047857">€0.00</div><div class="sum-sub">EUR 項目</div></div>
+    <div class="sum-card" style="border-color:rgba(109,40,217,.25)"><div class="sum-lbl">👩 Angel 俾</div><div class="sum-amt" id="s-angel" style="color:#6d28d9">£0 / €0</div><div class="sum-sub">Angel 埋單</div></div>
+    <div class="sum-card" style="border-color:rgba(190,24,93,.2)"><div class="sum-lbl">🌸 Olivia 俾</div><div class="sum-amt" id="s-olivia" style="color:#be185d">£0 / €0</div><div class="sum-sub">Olivia 埋單</div></div>
+    <div class="sum-card"><div class="sum-lbl">交通</div><div class="sum-amt" id="s-tr">—</div><div class="sum-sub">火車</div></div>
+    <div class="sum-card"><div class="sum-lbl">住宿</div><div class="sum-amt" id="s-ho">—</div><div class="sum-sub">酒店</div></div>
+    <div class="sum-card"><div class="sum-lbl">活動</div><div class="sum-amt" id="s-ac">—</div><div class="sum-sub">迪士尼等</div></div>
+    <div class="sum-card"><div class="sum-lbl">飲食</div><div class="sum-amt" id="s-fo">—</div><div class="sum-sub">餐廳等</div></div>
+    <div class="sum-card"><div class="sum-lbl">其他</div><div class="sum-amt" id="s-ot">—</div><div class="sum-sub">雜項</div></div>
+  </div>
+  <div style="background:var(--card);border-radius:16px 16px 0 0;border:1px solid var(--border2);border-bottom:none;padding:10px 14px">
+    <div class="edit-bar" style="margin-bottom:0">
+      <div class="card-t" style="margin-bottom:0;flex:1">📊 支出</div>
+      <button class="btn btn-add btn-sm" onclick="openExpAdd()">＋ 新增</button>
+      <button class="btn btn-add btn-sm btn-toggle" onclick="toggleExpEdit(this)">Edit</button>
+    </div>
+  </div>
+  <div class="tbl-wrap" id="exp-tbl-wrap" style="border-radius:0 0 16px 16px">
+    <table>
+      <thead><tr><th>類別</th><th>項目</th><th>日期</th><th>金額 (£)</th><th>埋單</th><th>備註</th><th style="text-align:center;display:none" class="th-edit">Edit</th></tr></thead>
+      <tbody id="exp-body"></tbody>
+      <tfoot><tr class="tot-row"><td colspan="2" style="font-family:'Cinzel',serif">Total</td><td><span class="tot-amt" id="s-tfoot">£0.00</span></td><td colspan="3"></td></tr></tfoot>
+    </table>
+  </div>
+</section>
+</main>
+
+<!-- ══ TIPS ══ -->
+<section class="day-sec" id="tips" style="display:none">
+  <div class="day-head">
+    <div class="day-num" style="background:linear-gradient(135deg,#7c3aed,#c026d3);min-width:72px;text-align:center">
+      <span class="day-n" style="color:rgba(255,255,255,.7)">旅遊</span>
+      <span class="day-d" style="font-size:1.8rem">💡</span>
+      <span class="day-m">Tips</span>
+    </div>
+    <div class="day-title"><h2>旅遊資訊 &amp; 提示</h2><div class="wday">Paris · Disneyland · 實用貼士</div></div>
+  </div>
+  <div class="tips-grid">
+
+    <div class="tip-card" style="border-left-color:#f59e0b">
+      <div class="tip-card-hd"><span style="font-size:1.3rem">🇫🇷</span><h3>巴黎生活貼士</h3></div>
+      <ul class="tip-list">
+        <li><strong>小費文化</strong> — 法國非強制，滿意服務可留 €1–3 圓整零錢，餐廳不需另付服務費</li>
+        <li><strong>基本法文</strong> — Bonjour（你好）· Merci（謝謝）· L'addition s'il vous plaît（埋單）· Excusez-moi（不好意思）</li>
+        <li><strong>購物時間</strong> — 大部分商店週日關門；百貨（Galeries Lafayette）及連鎖超市照常開</li>
+        <li><strong>插頭轉換</strong> — 歐洲 Type E/F（2圓腳，230V），記得帶萬能轉插頭</li>
+        <li><strong>退稅 VAT</strong> — 同一店購滿 €100.01 可申請退稅（機場 Pablo 機器操作），適用於非歐盟居民</li>
+        <li><strong>水</strong> — 自來水可直接飲用，餐廳點 "une carafe d'eau" 即免費白開水</li>
+      </ul>
+    </div>
+
+    <div class="tip-card" style="border-left-color:#6d28d9">
+      <div class="tip-card-hd"><span style="font-size:1.3rem">🏰</span><h3>Disneyland Paris 攻略</h3></div>
+      <ul class="tip-list">
+        <li><strong>必裝 App</strong> — Disneyland Paris 官方 App，實時排隊時間 + 地圖 + 預訂餐廳</li>
+        <li><strong>最佳到達時間</strong> — 開園前 30–45 分鐘到達，直衝最熱門設施</li>
+        <li><strong>必玩設施</strong> — Big Thunder Mountain · Phantom Manor · Hyperspace Mountain · Ratatouille · Crush's Coaster（Studio）</li>
+        <li><strong>Premier Access</strong> — 付費快速通道（每項目約 €12–20），旺季熱門設施值得購買</li>
+        <li><strong>避開人潮</strong> — 午飯時間（12:00–14:00）先玩設施，其他人去排隊食飯</li>
+        <li><strong>外帶食物</strong> — 可帶食物及非玻璃瓶飲品入場，省下園內餐飲費用</li>
+        <li><strong>Nighttime Show</strong> — Disney Illuminations 煙火表演，每晚閉園前，提早 30 分鐘佔位</li>
+      </ul>
+    </div>
+
+    <div class="tip-card" style="border-left-color:#2563eb">
+      <div class="tip-card-hd"><span style="font-size:1.3rem">🚇</span><h3>交通指南</h3></div>
+      <ul class="tip-list">
+        <li><strong>Metro 地鐵</strong> — 使用 Bonjour RATP App 買電子票，或購買 Navigo Easy 卡（€2 押金），可存多次票</li>
+        <li><strong>10 次票（Carnet）</strong> — 比單程票便宜，適合短期遊客（Zone 1–2 約 €17.35）</li>
+        <li><strong>Paris Visite Pass</strong> — 1日 / 3日 / 5日無限乘坐，Zone 1–5 包括 CDG 機場及 Disneyland</li>
+        <li><strong>往 Disneyland</strong> — RER A 線直達 Marne-la-Vallée-Chessy 站（約 45 分鐘，Zone 1–5 票包括）</li>
+        <li><strong>Eurostar 注意</strong> — 需 Gare du Nord 辦理出關，建議提前 90 分鐘到達，假期高峰期更早</li>
+        <li><strong>Uber / Taxi</strong> — 打車需要在機場或的士站乘坐，或用 Uber App，不可在路邊隨意截的</li>
+      </ul>
+    </div>
+
+    <div class="tip-card" style="border-left-color:#047857">
+      <div class="tip-card-hd"><span style="font-size:1.3rem">💶</span><h3>支付 &amp; 貨幣</h3></div>
+      <ul class="tip-list">
+        <li><strong>日常消費</strong> — 大部分地方接受 Visa / Mastercard，建議備少量現金（€50–100）</li>
+        <li><strong>只收現金</strong> — 部分小 Crêperie、街市攤檔、小咖啡廳，要留意</li>
+        <li><strong>外匯卡推薦</strong> — Revolut / Wise 無手續費換匯，比機場換匯划算得多</li>
+        <li><strong>ATM 提款</strong> — 市區遍佈，建議使用銀行 ATM，避免私人ATM高手續費</li>
+        <li><strong>匯率參考</strong> — £1 ≈ €1.18（2026 年實時匯率為準）</li>
+      </ul>
+    </div>
+
+    <div class="tip-card" style="border-left-color:#dc2626">
+      <div class="tip-card-hd"><span style="font-size:1.3rem">📞</span><h3>緊急聯絡</h3></div>
+      <ul class="tip-list">
+        <li><span class="tip-tag">🆘 緊急</span><strong>112</strong> — 歐洲通用緊急電話（警察/救護/消防）</li>
+        <li><span class="tip-tag">🚑 救護車</span><strong>15</strong> — SAMU（法國醫療緊急）</li>
+        <li><span class="tip-tag">👮 警察</span><strong>17</strong> — Police Nationale</li>
+        <li><span class="tip-tag">🚒 消防</span><strong>18</strong> — Pompiers</li>
+        <li><span class="tip-tag">🏥 英語醫院</span>American Hospital of Paris<br><small style="color:var(--text2)">+33 1 46 41 25 25 · 63 Blvd Victor Hugo, Neuilly-sur-Seine</small></li>
+        <li><span class="tip-tag">🇭🇰 港澳辦事處</span>+33 1 44 30 89 60（遺失護照/緊急協助）</li>
+        <li><strong>旅遊保險</strong> — 出發前確認保單包括緊急醫療及行李損失</li>
+      </ul>
+    </div>
+
+    <div class="tip-card" style="border-left-color:#be185d">
+      <div class="tip-card-hd"><span style="font-size:1.3rem">🍽️</span><h3>餐廳 &amp; 美食文化</h3></div>
+      <ul class="tip-list">
+        <li><strong>熱門餐廳訂座</strong> — Pink Mamma、BigLove Caffe 等網紅餐廳建議提前 1–2 週網上訂位（TheFork / Resy）</li>
+        <li><strong>用餐時間</strong> — 午餐 12:00–14:00、晚餐 19:00–22:00，非用餐時間廚房可能暫停</li>
+        <li><strong>服務員呼叫</strong> — 舉手說 "Excusez-moi" 或 "S'il vous plaît"，不要大聲呼叫</li>
+        <li><strong>麵包</strong> — 免費附送，可隨時要求補充</li>
+        <li><strong>咖啡文化</strong> — 法式早餐必備 Café crème（拿鐵）+ Croissant，在咖啡廳堂食比外帶便宜</li>
+        <li><strong>甜品必試</strong> — Crème brûlée · Tarte Tatin · Kouign-Amann · Paris-Brest</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- ITINERARY MODAL -->
+<div class="overlay" id="itin-modal">
+  <div class="modal">
+    <h3 id="itin-modal-ttl">✨ 新增行程</h3>
+    <div class="fg">
+      <label>🔗 貼上 Google Maps 連結（選填，自動填入名稱）</label>
+      <input type="url" id="im-url" placeholder="https://maps.google.com/..." oninput="parseMapUrl(this)">
+      <div class="paste-hint" id="im-hint"></div>
+    </div>
+    <input type="hidden" id="im-lat"><input type="hidden" id="im-lng">
+    <div class="fg"><label>圖示（Emoji）</label><input type="text" id="im-icon" placeholder="📍" maxlength="4"></div>
+    <div class="fg"><label>名稱 *</label><input type="text" id="im-name" placeholder="例：Pink Mamma"></div>
+    <div class="fg"><label>備註</label><input type="text" id="im-detail" placeholder="例：網紅餐廳，記得訂位"></div>
+    <div class="fg" id="im-time-row" style="display:grid;grid-template-columns:130px 1fr;gap:12px">
+      <div><label>⏰ 時間（24小時制）</label><input type="time" id="im-time"></div>
+      <div><label>標籤類別</label>
+        <select id="im-tag">
+          <option value="tf">🍽️ 餐廳</option>
+          <option value="th">🏨 住宿</option>
+          <option value="ta">🎡 景點/活動</option>
+          <option value="tc">🥞 甜品/Bakery</option>
+          <option value="ttr">🚄 交通</option>
+          <option value="to">📌 其他</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-act">
+      <button class="btn btn-cn" onclick="closeItinModal()">取消</button>
+      <button class="btn btn-p" id="im-save" onclick="saveItin()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPENSE MODAL -->
+<div class="overlay" id="exp-modal">
+  <div class="modal">
+    <h3 id="exp-modal-ttl">💰 新增支出</h3>
+    <div class="fg"><label>類別</label>
+      <select id="f-cat">
+        <option value="transport">🚄 交通</option>
+        <option value="hotel">🏨 住宿</option>
+        <option value="activity">🎡 活動</option>
+        <option value="food">🍽️ 飲食</option>
+        <option value="other">📦 其他</option>
+      </select>
+    </div>
+    <div class="fg"><label>項目名稱 *</label><input type="text" id="f-desc" placeholder="例：Pink Mamma 晚餐"></div>
+    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label>日期</label><input type="date" id="f-date"></div>
+      <div><label>埋單</label>
+        <select id="f-paid">
+          <option value="angel">👩 Angel</option>
+          <option value="olivia">🌸 Olivia</option>
+          <option value="split">👫 共同</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label>金額 *</label><input type="number" id="f-amt" placeholder="0.00" step="0.01" min="0"></div>
+      <div><label>貨幣</label>
+        <select id="f-cur">
+          <option value="gbp">💷 英鎊 (£)</option>
+          <option value="eur">💶 歐元 (€)</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label>備註</label><input type="text" id="f-note" placeholder="選填"></div>
+    <div class="modal-act">
+      <button class="btn btn-cn" onclick="closeExpModal()">取消</button>
+      <button class="btn btn-p" id="em-save" onclick="saveExp()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════
+// DAY SWITCH
+// ══════════════════════════════════
+function gotoDay(n){
+  document.querySelectorAll('.day-sec').forEach(s=>{s.classList.remove('active');});
+  const tips=document.getElementById('tips');if(tips)tips.style.display='none';
+  document.getElementById('expenses').style.display='';
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n-1));
+  document.getElementById('d'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  setTimeout(()=>initMap(n),60);
+}
+function gotoExp(){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===4));
+  document.querySelectorAll('.day-sec').forEach(s=>s.classList.remove('active'));
+  const tips=document.getElementById('tips');if(tips)tips.style.display='none';
+  document.getElementById('expenses').style.display='';
+  setTimeout(()=>document.getElementById('expenses').scrollIntoView({behavior:'smooth'}),50);
+}
+function gotoTips(){
+  document.querySelectorAll('.day-sec').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===5));
+  const tips=document.getElementById('tips');if(tips){tips.style.display='';tips.classList.add('active');}
+  document.getElementById('expenses').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ══════════════════════════════════
+// ITINERARY DATA
+// ══════════════════════════════════
+const tagLabel={'tf':'餐廳','th':'住宿','ta':'景點','tc':'甜品/Bakery','ttr':'交通','to':'其他'};
+let itinData={
+  1:[
+    {id:1,icon:'🚄',name:'11:31 London St Pancras 出發',detail:'Eurostar · 2h 28m',tag:'ttr',url:'https://maps.google.com/maps?q=St+Pancras+International+London'},
+    {id:2,icon:'🚄',name:'14:59 Paris Gare du Nord 到達',detail:'清關 · 轉 Métro',tag:'ttr',url:'https://maps.google.com/maps?q=Gare+du+Nord+Paris'},
+    {id:3,icon:'🏩',name:'Eden Opéra Paris Hôtel',detail:'Check-in · 今晚住宿',tag:'th',url:'https://maps.google.com/maps?q=Eden+Opera+Paris+Hotel'},
+    {id:4,icon:'🎪',name:'Les Pavillons de Bercy · Musée des Arts Forains',detail:'遊樂場博物館',tag:'ta',url:'https://maps.google.com/maps?q=Musee+Arts+Forains+Paris'},
+  ],
+  2:[
+    {id:1,icon:'🏩',name:"B&B HOTEL Marne-la-Vallée Val d'Europe",detail:'Serris · Check-in',tag:'th',url:"https://maps.google.com/maps?q=B%26B+Hotel+Marne-la-Vallee+Serris"},
+    {id:2,icon:'🏰',name:'Disneyland Paris',detail:'開門即入 · 早去人少',tag:'ta',url:'https://maps.google.com/maps?q=Disneyland+Paris'},
+    {id:3,icon:'🎢',name:'Star Wars: Hyperspace Mountain',detail:'必玩 · 盡早排隊或買 Premier Access',tag:'ta',url:''},
+    {id:4,icon:'🌮',name:'記得帶零食入場',detail:'場內食物比較貴',tag:'tf',url:''},
+  ],
+  3:[
+    {id:1,icon:'🎬',name:'Walt Disney Studios Park',detail:'Avengers Campus · Tower of Terror',tag:'ta',url:'https://maps.google.com/maps?q=Walt+Disney+Studios+Park+Marne-la-Vallee'},
+    {id:2,icon:'🎡',name:"Crush's Coaster",detail:'Studio Park 必玩 · 人多記得用 App 排',tag:'ta',url:''},
+    {id:3,icon:'🌙',name:'夜間 Illuminations 焰火巡遊',detail:'查好時間表 · 提前佔位',tag:'ta',url:''},
+    {id:4,icon:'🛍️',name:'Disney Village 購物',detail:'紀念品 · 場外食肆',tag:'tf',url:'https://maps.google.com/maps?q=Disney+Village+Marne-la-Vallee'},
+  ],
+  4:[
+    {id:1,icon:'☕',name:'最後一個巴黎早餐',detail:'Café crème + croissant',tag:'tf',url:''},
+    {id:2,icon:'🛍️',name:'買手信',detail:'馬卡龍 · 朱古力 · 帶返屋企',tag:'tf',url:''},
+    {id:3,icon:'🧳',name:'Check out · 前往 Gare du Nord',detail:'留 60 分鐘做 check-in 及過關',tag:'ttr',url:'https://maps.google.com/maps?q=Gare+du+Nord+Paris'},
+    {id:4,icon:'🚄',name:'21:02 Paris Gare du Nord 出發',detail:'Eurostar 回倫敦',tag:'ttr',url:''},
+  ],
+};
+let itinNextId={1:10,2:10,3:10,4:10};
+let editingItin=null,editingItinDay=null;
+
+// ── RESTAURANT DATA ──
+let restData={
+  1:[
+    {id:1,icon:'🌱',name:'Maslow · Paris',detail:'',url:'https://maps.google.com/maps?q=Maslow+restaurant+Paris',subtag:'meal'},
+    {id:2,icon:'🌿',name:'Les Tontons Veg · Paris',detail:'亦有黑松露麵',url:'https://maps.google.com/maps?q=Les+Tontons+Veg+Paris',subtag:'meal'},
+    {id:3,icon:'🥗',name:'B.Better · Paris',detail:'',url:'https://maps.google.com/maps?q=B+Better+Paris+restaurant',subtag:'meal'},
+    {id:4,icon:'💛',name:'BigLove Caffe · Paris',detail:'招牌黑松露意粉',url:'https://maps.google.com/maps?q=BigLove+Caffe+Paris',subtag:'meal'},
+    {id:5,icon:'🌾',name:"Green Farmer's · Paris",detail:'',url:'https://maps.google.com/maps?q=Green+Farmers+Paris',subtag:'meal'},
+    {id:6,icon:'💖',name:'Pink Mamma · Paris',detail:'網紅餐廳，建議提前訂位',url:'https://maps.google.com/maps?q=Pink+Mamma+Paris',subtag:'meal'},
+    {id:7,icon:'🥞',name:'Crêperie Brocéliande · Paris',detail:'',url:'https://maps.google.com/maps?q=Creperie+Broceliande+Paris',subtag:'meal'},
+    {id:8,icon:'🥞',name:'Crêperie Little Breizh · Paris',detail:'',url:'https://maps.google.com/maps?q=Creperie+Little+Breizh+Paris',subtag:'meal'},
+    {id:9,icon:'🥐',name:'Kouign Amann · 奶油阿曼',detail:'布列塔尼傳統甜點 — 焦糖、牛油、酥脆',url:'',subtag:'bakery'},
+  ],
+  2:[],3:[],4:[]
+};
+let restNextId={1:20,2:1,3:1,4:1};
+let editRestId=null,editRestDay=null;
+let modalMode='itin'; // 'itin' | 'rest'
+
+function renderItin(day){
+  const el=document.getElementById('itin-'+day);
+  if(!el)return;
+  el.innerHTML='';
+  // Auto-sort by time if any item has a time
+  if(itinData[day].some(x=>x.time)){
+    itinData[day].sort((a,b)=>{
+      if(!a.time&&!b.time)return 0;
+      if(!a.time)return 1;
+      if(!b.time)return -1;
+      return a.time.localeCompare(b.time);
+    });
+  }
+  itinData[day].forEach(item=>{
+    const d=document.createElement('div');
+    d.className='itin-row';d.id='ir-'+day+'-'+item.id;d.draggable=true;
+    const nameHtml=item.url
+      ?`<a href="${item.url}" target="_blank" class="itin-name-link">${item.name}</a>`
+      :`<span class="itin-name-plain">${item.name}</span>`;
+    d.innerHTML=`
+      <span class="itin-ico">${item.icon||'📍'}</span>
+      <div class="itin-info">
+        <div style="display:flex;align-items:baseline;gap:7px">
+          ${item.time?`<span class="itin-time">${item.time}</span>`:''}
+          ${nameHtml}
+        </div>
+        ${item.detail?`<div class="itin-detail">${item.detail}</div>`:''}
+      </div>
+      <span class="itin-tag ${item.tag}" style="background:${tagBg(item.tag)};color:${tagColor(item.tag)}">${tagLabel[item.tag]||''}</span>
+      <div class="itin-acts">
+        <button class="btn btn-e btn-sm" onclick="editItinItem(${day},${item.id})">✏️</button>
+        <button class="btn btn-d btn-sm" onclick="delItinItem(${day},${item.id})">🗑️</button>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+
+function renderRest(day){
+  const el=document.getElementById('rest-'+day);
+  if(!el)return;
+  el.innerHTML='';
+  if(!restData[day]||!restData[day].length){
+    el.innerHTML='<div style="font-size:.78rem;color:var(--text2);padding:8px 10px">尚未新增餐廳，點 ＋ 新增</div>';
+    return;
+  }
+  const rEmoji={meal:'🍝',dessert:'🍰',bakery:'🥐'};
+  const rLabel={meal:'正餐',dessert:'甜品',bakery:'Bakery'};
+  restData[day].forEach(item=>{
+    const d=document.createElement('div');
+    d.className='itin-row';d.id='rr-'+day+'-'+item.id;d.draggable=true;
+    const catEmoji=rEmoji[item.subtag]||'🍽️';
+    const catLabel=rLabel[item.subtag]||'餐廳';
+    const nameHtml=item.url
+      ?`<a href="${item.url}" target="_blank" class="itin-name-link">${item.name}</a>`
+      :`<span class="itin-name-plain">${item.name}</span>`;
+    d.innerHTML=`
+      <span class="itin-ico">${catEmoji}</span>
+      <div class="itin-info">
+        ${nameHtml}
+        ${item.detail?`<div class="itin-detail">${item.detail}</div>`:''}
+      </div>
+      <span class="itin-tag tf" style="background:${tagBg('tf')};color:${tagColor('tf')}">${catLabel}</span>
+      <div class="itin-acts">
+        <button class="btn btn-e btn-sm" onclick="editRestItem(${day},${item.id})">✏️</button>
+        <button class="btn btn-d btn-sm" onclick="delRestItem(${day},${item.id})">🗑️</button>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+function tagBg(t){return{tf:'rgba(255,215,0,.12)',th:'rgba(124,58,237,.2)',ta:'rgba(52,211,153,.12)',tc:'rgba(244,114,182,.12)',ttr:'rgba(96,165,250,.12)',to:'rgba(148,163,184,.12)'}[t]||'rgba(255,255,255,.06)'}
+function tagColor(t){return{tf:'#ffd700',th:'#c4b5fd',ta:'#6ee7b7',tc:'#f9a8d4',ttr:'#93c5fd',to:'#94a3b8'}[t]||'#aaa'}
+
+// Paste detection
+function handlePaste(e,day){
+  setTimeout(()=>{
+    const val=document.getElementById('paste-'+day).value.trim();
+    if(val) tryAddFromUrl(val,day);
+  },50);
+}
+function handlePasteInput(el,day){
+  const val=el.value.trim();
+  if(val.startsWith('http')) tryAddFromUrl(val,day);
+}
+function tryAddFromUrl(url,day){
+  const res=parseGMapsUrl(url);
+  if(res){
+    const item={
+      id:itinNextId[day]++,
+      icon:'📍',
+      name:res.name,
+      detail:'',
+      tag:'ta',
+      url:url,
+      lat:res.lat,
+      lng:res.lng,
+    };
+    itinData[day].push(item);
+    renderItin(day);
+    geocodeAndAddMarker(day,item,'itin');
+    saveAll();
+    document.getElementById('paste-'+day).value='';
+    flash('paste-'+day);
+  }
+}
+function flash(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.style.borderColor='rgba(192,38,211,.6)';
+  el.style.background='rgba(192,38,211,.08)';
+  setTimeout(()=>{el.style.borderColor='';el.style.background='';},1200);
+}
+
+// ── Google Maps URL parser ── returns {name, lat, lng} or null
+function parseGMapsUrl(url){
+  try{
+    const u=new URL(url);
+    let name=null,lat=null,lng=null;
+    // Extract coordinates @lat,lng,zoom
+    const cm=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if(cm){lat=parseFloat(cm[1]);lng=parseFloat(cm[2]);}
+    // /maps/place/PLACE_NAME/@...
+    const pm=u.pathname.match(/\/maps\/place\/([^/@?]+)/);
+    if(pm){
+      name=decodeURIComponent(pm[1].replace(/\+/g,' ')).replace(/_/g,' ');
+      return {name,lat,lng};
+    }
+    // ?q=QUERY or ?daddr=
+    const q=u.searchParams.get('q')||u.searchParams.get('daddr')||u.searchParams.get('query');
+    if(q){name=decodeURIComponent(q.replace(/\+/g,' ')).split(',')[0].trim();return {name,lat,lng};}
+    // maps.app.goo.gl — shortened link, name unknown
+    if(url.includes('goo.gl')) return {name:'',lat,lng,isShort:true};
+  }catch(e){}
+  return null;
+}
+
+// Itinerary modal
+let editItinId=null,editItinDay=null;
+function setTagOpts(mode){
+  const sel=document.getElementById('im-tag');
+  const tr=document.getElementById('im-time-row');
+  if(mode==='rest'){
+    sel.innerHTML='<option value="meal">🍝 正餐</option><option value="dessert">🍰 甜品</option><option value="bakery">🥐 Bakery</option>';
+    sel.value='meal';
+    if(tr) tr.style.gridTemplateColumns='1fr'; // hide time col, full-width tag
+    document.getElementById('im-time-row').querySelector('div:first-child').style.display='none';
+  }else{
+    sel.innerHTML='<option value="ta">🎡 景點/活動</option><option value="th">🏨 住宿</option><option value="tf">🍽️ 餐廳</option><option value="tc">🥞 甜品/Bakery</option><option value="ttr">🚄 交通</option><option value="to">📌 其他</option>';
+    sel.value='ta';
+    if(tr) tr.style.gridTemplateColumns='130px 1fr';
+    document.getElementById('im-time-row').querySelector('div:first-child').style.display='';
+  }
+}
+function openAdd(day){
+  modalMode='itin';
+  editItinId=null;editItinDay=day;
+  setTagOpts('itin');
+  document.getElementById('itin-modal-ttl').textContent='✨ 新增行程 · Day '+day;
+  document.getElementById('im-save').textContent='新增';
+  ['im-url','im-name','im-detail','im-lat','im-lng','im-time'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('im-icon').value='📍';
+  document.getElementById('im-hint').textContent='';
+  document.getElementById('im-hint').classList.remove('show');
+  document.getElementById('itin-modal').classList.add('open');
+}
+function openRestAdd(day){
+  modalMode='rest';
+  editRestId=null;editRestDay=day;
+  setTagOpts('rest');
+  document.getElementById('itin-modal-ttl').textContent='🍽️ 新增餐廳 · Day '+day;
+  document.getElementById('im-save').textContent='新增';
+  ['im-url','im-name','im-detail','im-lat','im-lng'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('im-icon').value='🍽️';
+  document.getElementById('im-hint').textContent='';
+  document.getElementById('im-hint').classList.remove('show');
+  document.getElementById('itin-modal').classList.add('open');
+}
+function editRestItem(day,id){
+  const item=restData[day].find(x=>x.id===id);if(!item)return;
+  modalMode='rest';
+  editRestId=id;editRestDay=day;
+  setTagOpts('rest');
+  document.getElementById('itin-modal-ttl').textContent='✏️ 修改餐廳';
+  document.getElementById('im-save').textContent='儲存';
+  document.getElementById('im-url').value=item.url||'';
+  document.getElementById('im-icon').value=item.icon||'🍽️';
+  document.getElementById('im-name').value=item.name;
+  document.getElementById('im-detail').value=item.detail||'';
+  document.getElementById('im-tag').value=item.subtag||'meal';
+  document.getElementById('im-lat').value=item.lat||'';
+  document.getElementById('im-lng').value=item.lng||'';
+  document.getElementById('im-hint').textContent='';
+  document.getElementById('im-hint').classList.remove('show');
+  document.getElementById('itin-modal').classList.add('open');
+}
+function delRestItem(day,id){
+  if(confirm('確定刪除這個餐廳？')){
+    removeMarkerByItem(day,id,'rest');
+    restData[day]=restData[day].filter(x=>x.id!==id);
+    renderRest(day);saveAll();
+  }
+}
+function editItinItem(day,id){
+  const item=itinData[day].find(x=>x.id===id);if(!item)return;
+  modalMode='itin';
+  setTagOpts('itin');
+  editItinId=id;editItinDay=day;
+  document.getElementById('itin-modal-ttl').textContent='✏️ 修改行程';
+  document.getElementById('im-save').textContent='儲存';
+  document.getElementById('im-url').value=item.url||'';
+  document.getElementById('im-icon').value=item.icon||'📍';
+  document.getElementById('im-name').value=item.name;
+  document.getElementById('im-detail').value=item.detail||'';
+  document.getElementById('im-tag').value=item.tag||'ta';
+  document.getElementById('im-lat').value=item.lat||'';
+  document.getElementById('im-lng').value=item.lng||'';
+  document.getElementById('im-time').value=item.time||'';
+  document.getElementById('im-hint').textContent='';
+  document.getElementById('im-hint').classList.remove('show');
+  document.getElementById('itin-modal').classList.add('open');
+}
+function delItinItem(day,id){
+  if(confirm('確定刪除這個行程項目？')){
+    removeMarkerByItem(day,id,'itin');
+    itinData[day]=itinData[day].filter(x=>x.id!==id);
+    renderItin(day);saveAll();
+  }
+}
+function parseMapUrl(el){
+  const url=el.value.trim();
+  const hint=document.getElementById('im-hint');
+  if(!url.startsWith('http')){
+    hint.classList.remove('show');
+    document.getElementById('im-lat').value='';
+    document.getElementById('im-lng').value='';
+    return;
+  }
+  const res=parseGMapsUrl(url);
+  if(res&&res.isShort){
+    document.getElementById('im-lat').value=res.lat||'';
+    document.getElementById('im-lng').value=res.lng||'';
+    hint.innerHTML='⚠️ 短連結無法自動識別名稱 — 請在 Google Maps 地址欄複製完整連結（如 <code style="font-size:.65rem">maps.google.com/maps/place/...</code>），或手動輸入名稱';
+    hint.classList.add('show');
+  }else if(res&&res.name){
+    document.getElementById('im-name').value=res.name;
+    document.getElementById('im-lat').value=res.lat||'';
+    document.getElementById('im-lng').value=res.lng||'';
+    let h='✅ 已自動識別：<span class="parsed-badge">'+res.name+'</span>';
+    if(res.lat) h+=' <span class="parsed-badge">📍 座標已擷取</span>';
+    hint.innerHTML=h;
+    hint.classList.add('show');
+  }else{
+    document.getElementById('im-lat').value='';
+    document.getElementById('im-lng').value='';
+    hint.textContent='⚠️ 無法自動識別地點名稱，請手動輸入';
+    hint.classList.add('show');
+  }
+}
+function saveItin(){
+  const rawName=document.getElementById('im-name').value.trim();
+  const url=document.getElementById('im-url').value.trim();
+  const name=rawName||(url?'新地點':'—');
+  const lat=parseFloat(document.getElementById('im-lat').value)||null;
+  const lng=parseFloat(document.getElementById('im-lng').value)||null;
+  const time=document.getElementById('im-time').value||null;
+  if(modalMode==='rest'){
+    const item={
+      id:editRestId||restNextId[editRestDay]++,
+      icon:document.getElementById('im-icon').value.trim()||'🍽️',
+      name,
+      detail:document.getElementById('im-detail').value.trim(),
+      tag:'tf',
+      subtag:document.getElementById('im-tag').value||'meal',
+      url:document.getElementById('im-url').value.trim(),
+      lat,lng,
+    };
+    if(editRestId!==null){
+      const idx=restData[editRestDay].findIndex(x=>x.id===editRestId);
+      if(idx>=0) restData[editRestDay][idx]=item;
+    }else{
+      restData[editRestDay].push(item);
+      geocodeAndAddMarker(editRestDay,item,'rest');
+    }
+    closeItinModal();renderRest(editRestDay);saveAll();
+  }else{
+    const item={
+      id:editItinId||itinNextId[editItinDay]++,
+      icon:document.getElementById('im-icon').value.trim()||'📍',
+      name,
+      detail:document.getElementById('im-detail').value.trim(),
+      tag:document.getElementById('im-tag').value,
+      url:document.getElementById('im-url').value.trim(),
+      lat,lng,time,
+    };
+    if(editItinId!==null){
+      const idx=itinData[editItinDay].findIndex(x=>x.id===editItinId);
+      if(idx>=0) itinData[editItinDay][idx]=item;
+    }else{
+      itinData[editItinDay].push(item);
+      geocodeAndAddMarker(editItinDay,item,'itin');
+    }
+    closeItinModal();renderItin(editItinDay);saveAll();
+  }
+}
+function closeItinModal(){document.getElementById('itin-modal').classList.remove('open')}
+
+// ══════════════════════════════════
+// LEAFLET MAPS
+// ══════════════════════════════════
+const mapData={
+  1:{markers:[
+    {name:'Gare du Nord',lat:48.8809,lng:2.3553,url:'https://maps.google.com/maps?q=Gare+du+Nord+Paris',emoji:'🚄'},
+    {name:'Eden Opéra Hotel',lat:48.8756,lng:2.3223,url:'https://maps.google.com/maps?q=Eden+Opera+Hotel+Paris',emoji:'🏩'},
+    {name:'Pink Mamma',lat:48.8832,lng:2.3308,url:'https://maps.google.com/maps?q=Pink+Mamma+Paris',emoji:'🍝'},
+    {name:'BigLove Caffe',lat:48.8754,lng:2.3095,url:'https://maps.google.com/maps?q=BigLove+Caffe+Paris',emoji:'🍝'},
+    {name:'Maslow Paris',lat:48.8664,lng:2.3399,url:'https://maps.google.com/maps?q=Maslow+restaurant+Paris',emoji:'🍝'},
+    {name:'Les Tontons Veg',lat:48.8596,lng:2.3550,url:'https://maps.google.com/maps?q=Les+Tontons+Veg+Paris',emoji:'🍝'},
+    {name:'B.Better Paris',lat:48.8741,lng:2.3313,url:'https://maps.google.com/maps?q=B+Better+Paris',emoji:'🍝'},
+    {name:"Green Farmer's",lat:48.8704,lng:2.3620,url:'https://maps.google.com/maps?q=Green+Farmers+Paris',emoji:'🍝'},
+    {name:'Crêperie Brocéliande',lat:48.8607,lng:2.3462,url:'https://maps.google.com/maps?q=Creperie+Broceliande+Paris',emoji:'🍝'},
+    {name:'Crêperie Little Breizh',lat:48.8527,lng:2.3417,url:'https://maps.google.com/maps?q=Creperie+Little+Breizh+Paris',emoji:'🍝'},
+    {name:'Musée des Arts Forains',lat:48.8423,lng:2.3769,url:'https://maps.google.com/maps?q=Musee+Arts+Forains+Paris',emoji:'🎡'},
+  ]},
+  2:{markers:[
+    {name:'B&B Hotel Marne-la-Vallée',lat:48.8493,lng:2.7847,url:'https://maps.google.com/maps?q=B%26B+Hotel+Marne-la-Vallee+Serris',emoji:'🏩'},
+    {name:'Disneyland Magic Kingdom',lat:48.8722,lng:2.7757,url:'https://maps.google.com/maps?q=Disneyland+Paris',emoji:'🎡'},
+    {name:"Val d'Europe",lat:48.8462,lng:2.7892,url:'https://maps.google.com/maps?q=Val+d%27Europe+Shopping+Centre+Serris',emoji:'🛍️'},
+  ]},
+  3:{markers:[
+    {name:'Walt Disney Studios',lat:48.8683,lng:2.7797,url:'https://maps.google.com/maps?q=Walt+Disney+Studios+Park+Marne-la-Vallee',emoji:'🎡'},
+    {name:'Magic Kingdom',lat:48.8722,lng:2.7757,url:'https://maps.google.com/maps?q=Disneyland+Paris',emoji:'🎡'},
+    {name:'Disney Village',lat:48.8699,lng:2.7846,url:'https://maps.google.com/maps?q=Disney+Village+Chessy',emoji:'🛍️'},
+  ]},
+  4:{markers:[
+    {name:'Eden Opéra Hotel',lat:48.8756,lng:2.3223,url:'https://maps.google.com/maps?q=Eden+Opera+Hotel+Paris',emoji:'🏩'},
+    {name:'Gare du Nord',lat:48.8809,lng:2.3553,url:'https://maps.google.com/maps?q=Gare+du+Nord+Paris',emoji:'🚄'},
+  ]}
+};
+const leafletMaps={};
+const leafletMarkerStore={}; // day → [{marker, cat}]
+
+function emojiToCat(e){
+  if(['🏩','🏨'].includes(e)) return 'hotel';
+  if(e==='🎡') return 'sight';
+  if(['🍝','🥞','🍰','🥐','🍽️'].includes(e)) return 'food';
+  if(e==='🚄') return 'transport';
+  if(e==='🛍️') return 'shop';
+  return 'other';
+}
+function mkPin(emoji){
+  return L.divIcon({
+    className:'',
+    html:`<div style="position:relative;width:34px;height:42px;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))"><div style="position:absolute;top:0;left:0;width:34px;height:34px;background:white;border:2.5px solid #ea4335;border-radius:50% 50% 50% 0;transform:rotate(-45deg)"></div><span style="position:absolute;top:2px;left:2px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:17px">${emoji}</span></div>`,
+    iconSize:[34,42],iconAnchor:[17,42],popupAnchor:[0,-44]
+  });
+}
+function addMarkerToMap(day,p,m){
+  const mk=L.marker([p.lat,p.lng],{icon:mkPin(p.emoji||p.icon||'📍')}).addTo(m);
+  const dispName=p.emoji?`${p.emoji} ${p.name}`:p.name;
+  mk.bindPopup(
+    `<div style="min-width:160px;font-family:'Inter',sans-serif">
+      <div style="font-size:.84rem;font-weight:600;color:#1a1a1a;margin-bottom:6px">${dispName}</div>
+      <a href="${p.url||'#'}" target="_blank" style="font-size:.74rem;color:#ea4335;font-weight:600;text-decoration:none">📍 在 Google Maps 查看 →</a>
+    </div>`
+  );
+  const cat=emojiToCat(p.emoji||p.icon||'📍');
+  if(!leafletMarkerStore[day]) leafletMarkerStore[day]=[];
+  leafletMarkerStore[day].push({marker:mk,cat,itemId:p.itemId||null,itemType:p.itemType||'static'});
+  return mk;
+}
+function addDynamicMarker(day,item,itemType){
+  if(!item.lat||!item.lng) return;
+  const m=leafletMaps[day];
+  if(!m) return;
+  const tagEmojiMap={ta:'🎡',th:'🏩',tf:'🍝',tc:'🥞',ttr:'🚄',meal:'🍝',dessert:'🍰',bakery:'🥐'};
+  const p={
+    lat:item.lat,lng:item.lng,
+    emoji:item.icon||tagEmojiMap[item.tag]||tagEmojiMap[item.subtag]||'📍',
+    name:item.name,url:item.url||'',
+    itemId:item.id,itemType:itemType||'itin'
+  };
+  addMarkerToMap(day,p,m);
+  const all=leafletMarkerStore[day].map(({marker})=>marker.getLatLng());
+  if(all.length>1) m.fitBounds(L.latLngBounds(all),{padding:[50,50],maxZoom:16});
+}
+function removeMarkerByItem(day,itemId,itemType){
+  if(!leafletMarkerStore[day]||!leafletMaps[day]) return;
+  const idx=leafletMarkerStore[day].findIndex(e=>e.itemId===itemId&&e.itemType===itemType);
+  if(idx>=0){
+    leafletMaps[day].removeLayer(leafletMarkerStore[day][idx].marker);
+    leafletMarkerStore[day].splice(idx,1);
+  }
+}
+function filterMap(day,cat){
+  if(!leafletMarkerStore[day]||!leafletMaps[day]) return;
+  document.querySelectorAll('#mf-'+day+' .mf-btn').forEach(b=>b.classList.toggle('active',b.dataset.cat===cat));
+  const m=leafletMaps[day];
+  leafletMarkerStore[day].forEach(({marker,cat:mc})=>{
+    const show=cat==='all'||mc===cat;
+    if(show){if(!m.hasLayer(marker)) marker.addTo(m);}
+    else{if(m.hasLayer(marker)) m.removeLayer(marker);}
+  });
+  const vis=leafletMarkerStore[day].filter(({cat:mc})=>cat==='all'||mc===cat).map(({marker})=>marker.getLatLng());
+  if(vis.length>1) m.fitBounds(L.latLngBounds(vis),{padding:[50,50],maxZoom:16});
+  else if(vis.length===1) m.setView(vis[0],15);
+}
+function initMap(day){
+  try{
+    const el=document.getElementById('map-'+day);
+    if(!el||!window.L)return;
+    if(leafletMaps[day]){setTimeout(()=>leafletMaps[day].invalidateSize(),50);return;}
+    const d=mapData[day];
+    const m=L.map(el,{zoomControl:true,scrollWheelZoom:false,attributionControl:false});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+      subdomains:'abcd',maxZoom:21
+    }).addTo(m);
+    leafletMarkerStore[day]=[];
+    d.markers.forEach(p=>addMarkerToMap(day,p,m));
+    if(d.markers.length>1){
+      m.fitBounds(L.latLngBounds(d.markers.map(p=>[p.lat,p.lng])),{padding:[50,50],maxZoom:16});
+    }else if(d.markers.length===1){
+      m.setView([d.markers[0].lat,d.markers[0].lng],15);
+    }
+    leafletMaps[day]=m;
+    // 載入從 Firebase 儲存嘅用戶自訂 markers
+    (restData[day]||[]).forEach(item=>{if(item.lat&&item.lng)addDynamicMarker(day,item,'rest');});
+    (itinData[day]||[]).forEach(item=>{if(item.lat&&item.lng)addDynamicMarker(day,item,'itin');});
+    setTimeout(()=>m.invalidateSize(),200);
+  }catch(e){console.warn('Map init error:',e);}
+}
+
+// ══════════════════════════════════
+// EXPENSES
+// ══════════════════════════════════
+let exps=[
+  {id:1,cat:'transport',desc:'Eurostar — London ↔ Paris（來回）',amt:148.00,note:'火車票',paidBy:'split',date:'2026-06-15',currency:'gbp'},
+  {id:2,cat:'activity',desc:'Disneyland Paris 門票',amt:325.42,note:'2 日 Park Hopper',paidBy:'split',date:'2026-06-15',currency:'gbp'},
+  {id:3,cat:'hotel',desc:'Eden Opéra Paris Hôtel',amt:147.24,note:'Day 1 · 1 晚',paidBy:'split',date:'2026-06-15',currency:'gbp'},
+  {id:4,cat:'hotel',desc:'B&B Hotel Marne-la-Vallée',amt:127.31,note:'Day 2–3 · 2 晚',paidBy:'split',date:'2026-06-16',currency:'gbp'},
+];
+let expNid=5,editExpId=null;
+const catL={transport:'🚄 交通',hotel:'🏨 住宿',activity:'🎡 活動',food:'🍽️ 飲食',other:'📦 其他'};
+const catC={transport:'cc-tr',hotel:'cc-ho',activity:'cc-ac',food:'cc-fo',other:'cc-ot'};
+
+const paidL={angel:'👩 Angel',olivia:'🌸 Olivia',split:'👫 共同'};
+const paidC={angel:'cc-an',olivia:'cc-ol',split:'cc-sp'};
+function renderExp(){
+  const tb=document.getElementById('exp-body');tb.innerHTML='';
+  const expEditing=document.getElementById('exp-tbl-wrap')?.classList.contains('edit-mode');
+  exps.forEach(e=>{
+    const tr=document.createElement('tr');
+    tr.draggable=true;tr.id='etr-'+e.id;
+    tr.style.touchAction='none';
+    const dateStr=e.date?e.date.slice(5).replace('-','/'):'—';
+    const pb=e.paidBy||'split';
+    tr.innerHTML=`<td><span class="cbadge ${catC[e.cat]}">${catL[e.cat]}</span></td>
+      <td>${e.desc}</td>
+      <td style="font-size:.75rem;color:var(--text2);white-space:nowrap">${dateStr}</td>
+      <td><span class="amt-d">${e.currency==='eur'?'€':'£'}${e.amt.toFixed(2)}</span></td>
+      <td><span class="cbadge ${paidC[pb]}">${paidL[pb]}</span></td>
+      <td style="color:var(--text2);font-size:.75rem">${e.note||''}</td>
+      <td style="text-align:center;display:${expEditing?'table-cell':'none'}" class="td-edit"><div style="display:flex;gap:5px;justify-content:center">
+        <button class="btn btn-e btn-sm" onclick="editExpItem(${e.id})">✏️</button>
+        <button class="btn btn-d btn-sm" onclick="delExp(${e.id})">🗑️</button>
+      </div></td>`;
+    tb.appendChild(tr);
+  });
+  calcSum();
+}
+function calcSum(){
+  function sumByCur(arr,cur){return arr.filter(e=>(e.currency||'gbp')===cur).reduce((s,e)=>s+e.amt,0);}
+  function fmtMixed(arr){
+    const g=sumByCur(arr,'gbp'),e2=sumByCur(arr,'eur');
+    return '£'+g.toFixed(2)+(e2>0?' / €'+e2.toFixed(2):'');
+  }
+  const gbpTotal=sumByCur(exps,'gbp'),eurTotal=sumByCur(exps,'eur');
+  document.getElementById('s-gbp').textContent='£'+gbpTotal.toFixed(2);
+  document.getElementById('s-eur').textContent='€'+eurTotal.toFixed(2);
+  document.getElementById('s-angel').textContent=fmtMixed(exps.filter(e=>e.paidBy==='angel'));
+  document.getElementById('s-olivia').textContent=fmtMixed(exps.filter(e=>e.paidBy==='olivia'));
+  const trEl=document.getElementById('s-tr');if(trEl)trEl.textContent=fmtMixed(exps.filter(e=>e.cat==='transport'));
+  const hoEl=document.getElementById('s-ho');if(hoEl)hoEl.textContent=fmtMixed(exps.filter(e=>e.cat==='hotel'));
+  const acEl=document.getElementById('s-ac');if(acEl)acEl.textContent=fmtMixed(exps.filter(e=>e.cat==='activity'));
+  const foEl=document.getElementById('s-fo');if(foEl)foEl.textContent=fmtMixed(exps.filter(e=>e.cat==='food'));
+  const otEl=document.getElementById('s-ot');if(otEl)otEl.textContent=fmtMixed(exps.filter(e=>e.cat==='other'));
+  const tfoot=document.getElementById('s-tfoot');
+  if(tfoot)tfoot.textContent='£'+gbpTotal.toFixed(2)+(eurTotal>0?' + €'+eurTotal.toFixed(2):'');
+}
+function openExpAdd(){
+  editExpId=null;
+  document.getElementById('exp-modal-ttl').textContent='💰 新增支出';
+  document.getElementById('em-save').textContent='新增';
+  ['f-desc','f-amt','f-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-cat').value='other';
+  document.getElementById('f-paid').value='split';
+  document.getElementById('f-date').value='';
+  document.getElementById('f-cur').value='gbp';
+  document.getElementById('exp-modal').classList.add('open');
+}
+function editExpItem(id){
+  const e=exps.find(x=>x.id===id);if(!e)return;
+  editExpId=id;
+  document.getElementById('exp-modal-ttl').textContent='✏️ 修改支出';
+  document.getElementById('em-save').textContent='儲存';
+  document.getElementById('f-cat').value=e.cat;
+  document.getElementById('f-desc').value=e.desc;
+  document.getElementById('f-amt').value=e.amt;
+  document.getElementById('f-note').value=e.note||'';
+  document.getElementById('f-paid').value=e.paidBy||'split';
+  document.getElementById('f-date').value=e.date||'';
+  document.getElementById('f-cur').value=e.currency||'gbp';
+  document.getElementById('exp-modal').classList.add('open');
+}
+function delExp(id){
+  if(confirm('確定刪除？')){exps=exps.filter(e=>e.id!==id);renderExp();saveAll();}
+}
+function saveExp(){
+  const cat=document.getElementById('f-cat').value;
+  const desc=document.getElementById('f-desc').value.trim();
+  const amt=parseFloat(document.getElementById('f-amt').value);
+  const note=document.getElementById('f-note').value.trim();
+  const paidBy=document.getElementById('f-paid').value;
+  const date=document.getElementById('f-date').value;
+  const currency=document.getElementById('f-cur').value||'gbp';
+  if(!desc){alert('請輸入名稱');return;}
+  if(isNaN(amt)||amt<0){alert('請輸入有效金額');return;}
+  if(editExpId!==null){
+    const e=exps.find(x=>x.id===editExpId);
+    if(e){e.cat=cat;e.desc=desc;e.amt=amt;e.note=note;e.paidBy=paidBy;e.date=date;e.currency=currency;}
+  }else{
+    exps.push({id:expNid++,cat,desc,amt,note,paidBy,date,currency});
+  }
+  closeExpModal();renderExp();saveAll();
+}
+function closeExpModal(){document.getElementById('exp-modal').classList.remove('open')}
+
+// Close modals on overlay click
+['itin-modal','exp-modal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')});
+});
+
+// ── Cross-list drag-to-reorder (itin ↔ rest within same day) ──
+function setupCrossSort(day){
+  const listA=document.getElementById('itin-'+day);
+  const listB=document.getElementById('rest-'+day);
+  if(!listA||!listB)return;
+
+  const saveOrder=()=>{
+    const origItin=[...(itinData[day]||[])];
+    const origRest=[...(restData[day]||[])];
+    // 用 .itin-row 選擇器（不依賴 draggable 屬性）
+    const newItin=[...listA.querySelectorAll('.itin-row')].map(row=>{
+      const m=row.id.match(/^ir-\d+-(\d+)$/);
+      if(m)return origItin.find(x=>x.id===parseInt(m[1]));
+      const rm=row.id.match(/^rr-\d+-(\d+)$/);
+      if(rm){const s=origRest.find(x=>x.id===parseInt(rm[1]));if(s)return{id:itinNextId[day]++,name:s.name,time:'',icon:'🍽️',tag:'tf',detail:s.detail||'',url:s.url||'',lat:s.lat,lng:s.lng};}
+      return null;
+    }).filter(Boolean);
+    const newRest=[...listB.querySelectorAll('.itin-row')].map(row=>{
+      const m=row.id.match(/^rr-\d+-(\d+)$/);
+      if(m)return origRest.find(x=>x.id===parseInt(m[1]));
+      const im=row.id.match(/^ir-\d+-(\d+)$/);
+      if(im){const s=origItin.find(x=>x.id===parseInt(im[1]));if(s)return{id:restNextId[day]++,name:s.name,subtag:'meal',detail:s.detail||'',url:s.url||'',lat:s.lat,lng:s.lng};}
+      return null;
+    }).filter(Boolean);
+    itinData[day]=newItin;restData[day]=newRest;
+    renderItin(day);renderRest(day);saveAll();
+  };
+
+  // Desktop HTML5 drag（滑鼠用戶）
+  let desktopDragging=null;
+  [listA,listB].forEach(list=>{
+    list.addEventListener('dragstart',e=>{
+      desktopDragging=e.target.closest('[draggable="true"]');
+      if(!desktopDragging)return;
+      e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text','');
+      setTimeout(()=>desktopDragging&&desktopDragging.classList.add('dragging'),0);
+    });
+    list.addEventListener('dragover',e=>{
+      e.preventDefault();if(!desktopDragging)return;
+      const over=e.target.closest('[draggable="true"]');
+      if(over&&over!==desktopDragging){const r=over.getBoundingClientRect();list.insertBefore(desktopDragging,e.clientY<r.top+r.height/2?over:over.nextSibling);}
+    });
+    list.addEventListener('dragend',()=>{
+      if(!desktopDragging)return;
+      desktopDragging.classList.remove('dragging');
+      if(!mobileDragActive){saveOrder();} // 避免 mobile 同時觸發
+      desktopDragging=null;
+    });
+  });
+
+  // Mobile 長按拖拽
+  const col=listA.closest('.col')||listA.parentNode;
+  let tDrag=null,tTimer=null,tSX=0,tSY=0;
+  let hasMoved=false,mobileDragActive=false; // hasMoved：確保只有真正移動才儲存
+  let rafPending=false,lastTY=0;
+
+  col.addEventListener('touchstart',e=>{
+    const row=e.target.closest('.itin-row');
+    if(!row||(!listA.contains(row)&&!listB.contains(row)))return;
+    if(e.target.closest('a,button'))return;
+    if(row.closest('.card')?.classList.contains('edit-mode'))return;
+    e.preventDefault(); // 阻止 iOS 決定 scroll 方向（必須在 touchstart 同步呼叫）
+    tSX=e.touches[0].clientX;tSY=e.touches[0].clientY;
+    hasMoved=false;
+    tTimer=setTimeout(()=>{
+      tDrag=row;mobileDragActive=true;
+      row.classList.add('dragging');
+      if(navigator.vibrate)navigator.vibrate(25);
+    },400); // 400ms 比 500ms 更靈敏
+  },{passive:false});
+
+  col.addEventListener('touchmove',e=>{
+    if(!tDrag){
+      // 未觸發拖拽時，若手指移動超過閾值，取消長按計時
+      if(tTimer&&(Math.abs(e.touches[0].clientX-tSX)>8||Math.abs(e.touches[0].clientY-tSY)>8)){
+        clearTimeout(tTimer);tTimer=null;
+      }
+      return;
+    }
+    e.preventDefault();
+    lastTY=e.touches[0].clientY;
+    if(rafPending)return; // rAF 節流：每幀最多執行一次 DOM 操作
+    rafPending=true;
+    requestAnimationFrame(()=>{
+      rafPending=false;
+      if(!tDrag)return;
+      const ty=lastTY;
+      const allRows=[...listA.querySelectorAll('.itin-row'),...listB.querySelectorAll('.itin-row')].filter(r=>r!==tDrag);
+      let ins=null,insParent=null;
+      for(const r of allRows){
+        const b=r.getBoundingClientRect();
+        if(ty<b.top+b.height/2){ins=r;insParent=listA.contains(r)?listA:listB;break;}
+      }
+      const targetParent=ins?insParent:(ty>(listB.closest('.card')?.getBoundingClientRect().top??Infinity)?listB:listA);
+      if(ins){
+        if(tDrag.nextSibling!==ins||tDrag.parentNode!==insParent){
+          insParent.insertBefore(tDrag,ins);hasMoved=true;
+        }
+      }else{
+        if(tDrag!==targetParent.lastElementChild||tDrag.parentNode!==targetParent){
+          targetParent.appendChild(tDrag);hasMoved=true;
+        }
+      }
+    });
+  },{passive:false});
+
+  const endT=()=>{
+    clearTimeout(tTimer);tTimer=null;
+    if(!tDrag){mobileDragActive=false;return;}
+    tDrag.classList.remove('dragging');
+    if(hasMoved)saveOrder(); // 只有真正移動過才儲存，防止 tap 觸發 copy bug
+    tDrag=null;hasMoved=false;mobileDragActive=false;
+  };
+  col.addEventListener('touchend',endT);
+  col.addEventListener('touchcancel',endT);
+}
+
+// ── Geocode new place → auto-pin on map ──
+async function geocodeAndAddMarker(day,item,itemType){
+  if(item.lat&&item.lng){addDynamicMarker(day,item,itemType);return;}
+  if(!item.name||item.name==='—'||item.name==='新地點')return;
+  const ctx=(day===2||day===3)?'Marne-la-Vallée France':'Paris France';
+  try{
+    const res=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&email=fing99x1@gmail.com&q='+encodeURIComponent(item.name+' '+ctx));
+    const data=await res.json();
+    if(data[0]){
+      item.lat=parseFloat(data[0].lat);
+      item.lng=parseFloat(data[0].lon);
+      addDynamicMarker(day,item,itemType);
+    }
+  }catch(e){console.warn('Geocode failed:',e);}
+}
+
+// ── FIREBASE PERSISTENCE ──
+firebase.initializeApp({
+  apiKey:"AIzaSyABB0dsxETkt6F3mhyrryM3p0iIMGyEFkQ",
+  authDomain:"paris-2026-2790b.firebaseapp.com",
+  databaseURL:"https://paris-2026-2790b-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"paris-2026-2790b",
+  storageBucket:"paris-2026-2790b.firebasestorage.app",
+  messagingSenderId:"902873195827",
+  appId:"1:902873195827:web:83d9176bdf8d0c9e820a46"
+});
+const fbDb=firebase.database();
+const FB_REF='paris2026';
+
+function saveAll(){
+  fbDb.ref(FB_REF).set({itinData,restData,itinNextId,restNextId,exps,expNid})
+    .catch(e=>console.warn('Firebase save failed:',e));
+}
+async function loadAll(){
+  try{
+    const snap=await fbDb.ref(FB_REF).get();
+    if(!snap.exists())return;
+    const d=snap.val();
+    // Firebase 會將 array 序列化為 {0:{...},1:{...}} object，需要轉回 array
+    const toArr=v=>!v?[]:Array.isArray(v)?v:Object.values(v);
+    if(d.itinData)[1,2,3,4].forEach(day=>{if(d.itinData[day])itinData[day]=toArr(d.itinData[day]);});
+    if(d.restData)[1,2,3,4].forEach(day=>{if(d.restData[day])restData[day]=toArr(d.restData[day]);});
+    if(d.itinNextId)Object.assign(itinNextId,d.itinNextId);
+    if(d.restNextId)Object.assign(restNextId,d.restNextId);
+    if(d.exps)exps=toArr(d.exps);
+    if(d.expNid!=null)expNid=d.expNid;
+  }catch(e){console.warn('Firebase load failed:',e);}
+}
+
+// Toggle edit mode for itinerary/restaurant card
+function toggleEdit(btn){
+  const card=btn.closest('.card');
+  const editing=card.classList.toggle('edit-mode');
+  btn.textContent=editing?'✓ Done':'Edit';
+}
+
+// Toggle edit mode for expense table
+function toggleExpEdit(btn){
+  const wrap=document.getElementById('exp-tbl-wrap');
+  const editing=wrap.classList.toggle('edit-mode');
+  btn.textContent=editing?'✓ Done':'Edit';
+  document.querySelector('.th-edit').style.display=editing?'table-cell':'none';
+  document.querySelectorAll('.td-edit').forEach(td=>td.style.display=editing?'table-cell':'none');
+}
+
+// Expense table long-press drag
+function setupExpSort(){
+  const tbody=document.getElementById('exp-body');
+  if(!tbody)return;
+  let tDrag=null,tTimer=null,tSX=0,tSY=0;
+  let rafPending=false,lastTY=0,hasMoved=false;
+
+  // passive:true → 不攔截 touchstart，讓橫向 scroll 正常運作
+  tbody.addEventListener('touchstart',e=>{
+    const row=e.target.closest('tr[draggable]');if(!row)return;
+    if(e.target.closest('button'))return;
+    // 注意：這裡故意不叫 e.preventDefault()，保留橫向滾動能力
+    tSX=e.touches[0].clientX;tSY=e.touches[0].clientY;
+    hasMoved=false;
+    tTimer=setTimeout(()=>{
+      tDrag=row;
+      row.style.opacity='.45';
+      row.style.outline='2px dashed var(--gold)';
+      row.style.transform='scale(1.01)';
+      if(navigator.vibrate)navigator.vibrate(25);
+    },400);
+  },{passive:true});
+
+  tbody.addEventListener('touchmove',e=>{
+    if(!tDrag){
+      // 手指移動超過 8px 就取消長按
+      if(tTimer&&(Math.abs(e.touches[0].clientX-tSX)>8||Math.abs(e.touches[0].clientY-tSY)>8)){
+        clearTimeout(tTimer);tTimer=null;
+      }
+      return;
+    }
+    // 確認在拖拽模式後才 preventDefault（此時用戶靜止了 400ms，不會有橫向 scroll）
+    e.preventDefault();
+    lastTY=e.touches[0].clientY;
+    if(rafPending)return;
+    rafPending=true;
+    requestAnimationFrame(()=>{
+      rafPending=false;
+      if(!tDrag)return;
+      const ty=lastTY;
+      const rows=[...tbody.querySelectorAll('tr[draggable]')].filter(r=>r!==tDrag);
+      let ins=null;
+      for(const r of rows){const b=r.getBoundingClientRect();if(ty<b.top+b.height/2){ins=r;break;}}
+      if(ins){if(tDrag.nextSibling!==ins){tbody.insertBefore(tDrag,ins);hasMoved=true;}}
+      else{if(tDrag!==tbody.lastElementChild){tbody.appendChild(tDrag);hasMoved=true;}}
+    });
+  },{passive:false});
+
+  const endT=()=>{
+    clearTimeout(tTimer);tTimer=null;
+    if(!tDrag)return;
+    tDrag.style.opacity='';tDrag.style.outline='';tDrag.style.transform='';
+    if(hasMoved){
+      const newOrder=[...tbody.querySelectorAll('tr[draggable]')].map(tr=>{
+        const m=tr.id.match(/^etr-(\d+)$/);return m?exps.find(x=>x.id===parseInt(m[1])):null;
+      }).filter(Boolean);
+      if(newOrder.length===exps.length){exps.splice(0,exps.length,...newOrder);saveAll();}
+    }
+    tDrag=null;hasMoved=false;
+  };
+  tbody.addEventListener('touchend',endT);tbody.addEventListener('touchcancel',endT);
+}
+
+// Init
+(async()=>{
+  await loadAll();
+  [1,2,3,4].forEach(d=>{renderItin(d);renderRest(d);});
+  renderExp();
+  const initMapAndSort=()=>{
+    initMap(1);
+    [1,2,3,4].forEach(d=>setupCrossSort(d));
+    setupExpSort();
+  };
+  if(document.readyState==='complete'){
+    initMapAndSort();
+  }else{
+    window.addEventListener('load',initMapAndSort);
+  }
+})();
+</script>
+</body>
+</html>
