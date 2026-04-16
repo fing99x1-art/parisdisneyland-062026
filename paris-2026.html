@@ -284,7 +284,7 @@ body::before{
 .itin-row{
   display:flex;align-items:flex-start;gap:9px;padding:9px 10px;
   border-radius:10px;background:rgba(255,255,255,.03);border:1px solid transparent;
-  transition:all .15s;touch-action:none;user-select:none;-webkit-user-select:none;
+  transition:all .15s;user-select:none;-webkit-user-select:none;
 }
 .itin-row:hover{background:rgba(192,38,211,.05);border-color:rgba(192,38,211,.15)}
 .itin-ico{font-size:.95rem;flex-shrink:0;margin-top:2px}
@@ -1492,6 +1492,7 @@ function setupDragSort(list,getDataFn,setDataFn,idPattern){
   const startDrag=(row,pid)=>{
     dragEl=row;capturedId=pid;potRow=null;hasMoved=false;
     try{list.setPointerCapture(pid);}catch(_){}
+    list.style.touchAction='none'; // 拖拽期間鎖住 scroll
     dragEl.classList.add('dragging');
     if(navigator.vibrate)navigator.vibrate(20);
     // 只有開始拖拽，先加入 non-passive handler
@@ -1506,6 +1507,7 @@ function setupDragSort(list,getDataFn,setDataFn,idPattern){
       list.removeEventListener('pointermove',activeDragHandler,{passive:false});
       activeDragHandler=null;
     }
+    list.style.touchAction=''; // 還原 scroll
     if(!dragEl)return;
     try{if(capturedId!=null)list.releasePointerCapture(capturedId);}catch(_){}
     capturedId=null;
@@ -1548,6 +1550,7 @@ function setupDragSort(list,getDataFn,setDataFn,idPattern){
   list.addEventListener('pointercancel',()=>{
     clearTimeout(timer);timer=null;potRow=null;
     if(activeDragHandler){list.removeEventListener('pointermove',activeDragHandler,{passive:false});activeDragHandler=null;}
+    list.style.touchAction=''; // 還原 scroll
     if(dragEl){dragEl.classList.remove('dragging');dragEl=null;}
     try{if(capturedId!=null)list.releasePointerCapture(capturedId);}catch(_){}
     capturedId=null;hasMoved=false;
@@ -1685,6 +1688,7 @@ function setupExpSort(){
       row.style.outline='2px dashed var(--gold)';
       row.style.transform='scale(1.01)';
       if(navigator.vibrate)navigator.vibrate(25);
+      tbody.style.touchAction='none'; // 拖拽期間鎖住 scroll
       // 拖拽開始後才加入 non-passive listener
       activeTouchMove=onDragMove;
       tbody.addEventListener('touchmove',activeTouchMove,{passive:false});
@@ -1704,6 +1708,7 @@ function setupExpSort(){
       tbody.removeEventListener('touchmove',activeTouchMove,{passive:false});
       activeTouchMove=null;
     }
+    tbody.style.touchAction=''; // 還原 scroll
     if(!tDrag)return;
     tDrag.style.opacity='';tDrag.style.outline='';tDrag.style.transform='';
     if(hasMoved){
