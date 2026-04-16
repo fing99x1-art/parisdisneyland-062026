@@ -1461,80 +1461,85 @@ function closeExpModal(){document.getElementById('exp-modal').classList.remove('
   document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')});
 });
 
-// ── Cross-list drag-to-reorder (itin ↔ rest within same day) ──
+// ── Drag-to-reorder（行程 / 餐廳各自排序，不允許跨框拖拽）──
 function setupCrossSort(day){
   const listA=document.getElementById('itin-'+day);
   const listB=document.getElementById('rest-'+day);
   if(!listA||!listB)return;
 
-  const saveOrder=()=>{
-    const origItin=[...(itinData[day]||[])];
-    const origRest=[...(restData[day]||[])];
-    // 用 .itin-row 選擇器（不依賴 draggable 屬性）
-    const newItin=[...listA.querySelectorAll('.itin-row')].map(row=>{
-      const m=row.id.match(/^ir-\d+-(\d+)$/);
-      if(m)return origItin.find(x=>x.id===parseInt(m[1]));
-      const rm=row.id.match(/^rr-\d+-(\d+)$/);
-      if(rm){const s=origRest.find(x=>x.id===parseInt(rm[1]));if(s)return{id:itinNextId[day]++,name:s.name,time:'',icon:'🍽️',tag:'tf',detail:s.detail||'',url:s.url||'',lat:s.lat,lng:s.lng};}
-      return null;
+  // 只更新排序，不重建 DOM（DOM 已由拖拽直接更新）
+  const saveOrder=(list,origData,idPattern)=>{
+    const newOrder=[...list.querySelectorAll('.itin-row')].map(row=>{
+      const m=row.id.match(idPattern);
+      return m?origData.find(x=>x.id===parseInt(m[1])):null;
     }).filter(Boolean);
-    const newRest=[...listB.querySelectorAll('.itin-row')].map(row=>{
-      const m=row.id.match(/^rr-\d+-(\d+)$/);
-      if(m)return origRest.find(x=>x.id===parseInt(m[1]));
-      const im=row.id.match(/^ir-\d+-(\d+)$/);
-      if(im){const s=origItin.find(x=>x.id===parseInt(im[1]));if(s)return{id:restNextId[day]++,name:s.name,subtag:'meal',detail:s.detail||'',url:s.url||'',lat:s.lat,lng:s.lng};}
-      return null;
-    }).filter(Boolean);
-    itinData[day]=newItin;restData[day]=newRest;
-    renderItin(day);renderRest(day);saveAll();
+    // 只有長度一致才更新（防止跨框拖拽導致數據丟失）
+    if(newOrder.length===origData.length)return newOrder;
+    return origData;
   };
 
-  // Desktop HTML5 drag（滑鼠用戶）
+  // Desktop HTML5 drag
   let desktopDragging=null;
+  let dragSourceList=null; // 記住拖拽起始的框，禁止跨框
   [listA,listB].forEach(list=>{
     list.addEventListener('dragstart',e=>{
       desktopDragging=e.target.closest('[draggable="true"]');
       if(!desktopDragging)return;
+      dragSourceList=list; // 鎖定起始框
       e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text','');
       setTimeout(()=>desktopDragging&&desktopDragging.classList.add('dragging'),0);
     });
     list.addEventListener('dragover',e=>{
-      e.preventDefault();if(!desktopDragging)return;
+      e.preventDefault();
+      if(!desktopDragging||dragSourceList!==list)return; // 只允許在同一框內移動
       const over=e.target.closest('[draggable="true"]');
-      if(over&&over!==desktopDragging){const r=over.getBoundingClientRect();list.insertBefore(desktopDragging,e.clientY<r.top+r.height/2?over:over.nextSibling);}
+      if(over&&over!==desktopDragging){
+        const r=over.getBoundingClientRect();
+        list.insertBefore(desktopDragging,e.clientY<r.top+r.height/2?over:over.nextSibling);
+      }
     });
     list.addEventListener('dragend',()=>{
       if(!desktopDragging)return;
       desktopDragging.classList.remove('dragging');
-      if(!mobileDragActive){saveOrder();} // 避免 mobile 同時觸發
-      desktopDragging=null;
+      if(!mobileDragActive){
+        // 根據起始框更新對應數據
+        if(dragSourceList===listA)
+          itinData[day]=saveOrder(listA,[...(itinData[day]||[])],/^ir-\d+-(\d+)$/);
+        else
+          restData[day]=saveOrder(listB,[...(restData[day]||[])],/^rr-\d+-(\d+)$/);
+        saveAll();
+      }
+      desktopDragging=null;dragSourceList=null;
     });
   });
 
   // Mobile 長按拖拽
   const col=listA.closest('.col')||listA.parentNode;
   let tDrag=null,tTimer=null,tSX=0,tSY=0;
-  let hasMoved=false,mobileDragActive=false; // hasMoved：確保只有真正移動才儲存
+  let hasMoved=false,mobileDragActive=false;
   let rafPending=false,lastTY=0;
+  let tSourceList=null; // 記住 touch 起始框
 
   col.addEventListener('touchstart',e=>{
     const row=e.target.closest('.itin-row');
-    if(!row||(!listA.contains(row)&&!listB.contains(row)))return;
+    if(!row)return;
+    tSourceList=listA.contains(row)?listA:listB.contains(row)?listB:null;
+    if(!tSourceList)return;
     if(e.target.closest('a,button'))return;
     if(row.closest('.card')?.classList.contains('edit-mode'))return;
-    e.preventDefault(); // 阻止 iOS 決定 scroll 方向（必須在 touchstart 同步呼叫）
+    // 不在 touchstart 攔截（否則整頁無法滑動）
+    // 只記錄起始位置，等 touchmove 確認長按後才攔截
     tSX=e.touches[0].clientX;tSY=e.touches[0].clientY;
     hasMoved=false;
     tTimer=setTimeout(()=>{
       tDrag=row;mobileDragActive=true;
       row.classList.add('dragging');
       if(navigator.vibrate)navigator.vibrate(25);
-    },400); // 400ms 比 500ms 更靈敏
-  },{passive:false});
+    },400);
+  },{passive:true}); // passive:true → 唔攔截 touchstart，頁面可以正常滑動
 
   col.addEventListener('touchmove',e=>{
     if(!tDrag){
-      // 未觸發拖拽時，若手指移動超過閾值，取消長按計時
       if(tTimer&&(Math.abs(e.touches[0].clientX-tSX)>8||Math.abs(e.touches[0].clientY-tSY)>8)){
         clearTimeout(tTimer);tTimer=null;
       }
@@ -1542,27 +1547,23 @@ function setupCrossSort(day){
     }
     e.preventDefault();
     lastTY=e.touches[0].clientY;
-    if(rafPending)return; // rAF 節流：每幀最多執行一次 DOM 操作
+    if(rafPending)return;
     rafPending=true;
     requestAnimationFrame(()=>{
       rafPending=false;
       if(!tDrag)return;
       const ty=lastTY;
-      const allRows=[...listA.querySelectorAll('.itin-row'),...listB.querySelectorAll('.itin-row')].filter(r=>r!==tDrag);
-      let ins=null,insParent=null;
-      for(const r of allRows){
+      // 只在起始框內排序，不跨框
+      const rows=[...tSourceList.querySelectorAll('.itin-row')].filter(r=>r!==tDrag);
+      let ins=null;
+      for(const r of rows){
         const b=r.getBoundingClientRect();
-        if(ty<b.top+b.height/2){ins=r;insParent=listA.contains(r)?listA:listB;break;}
+        if(ty<b.top+b.height/2){ins=r;break;}
       }
-      const targetParent=ins?insParent:(ty>(listB.closest('.card')?.getBoundingClientRect().top??Infinity)?listB:listA);
       if(ins){
-        if(tDrag.nextSibling!==ins||tDrag.parentNode!==insParent){
-          insParent.insertBefore(tDrag,ins);hasMoved=true;
-        }
+        if(tDrag.nextSibling!==ins){tSourceList.insertBefore(tDrag,ins);hasMoved=true;}
       }else{
-        if(tDrag!==targetParent.lastElementChild||tDrag.parentNode!==targetParent){
-          targetParent.appendChild(tDrag);hasMoved=true;
-        }
+        if(tDrag!==tSourceList.lastElementChild){tSourceList.appendChild(tDrag);hasMoved=true;}
       }
     });
   },{passive:false});
@@ -1571,8 +1572,14 @@ function setupCrossSort(day){
     clearTimeout(tTimer);tTimer=null;
     if(!tDrag){mobileDragActive=false;return;}
     tDrag.classList.remove('dragging');
-    if(hasMoved)saveOrder(); // 只有真正移動過才儲存，防止 tap 觸發 copy bug
-    tDrag=null;hasMoved=false;mobileDragActive=false;
+    if(hasMoved){
+      if(tSourceList===listA)
+        itinData[day]=saveOrder(listA,[...(itinData[day]||[])],/^ir-\d+-(\d+)$/);
+      else
+        restData[day]=saveOrder(listB,[...(restData[day]||[])],/^rr-\d+-(\d+)$/);
+      saveAll();
+    }
+    tDrag=null;hasMoved=false;mobileDragActive=false;tSourceList=null;
   };
   col.addEventListener('touchend',endT);
   col.addEventListener('touchcancel',endT);
@@ -1607,24 +1614,34 @@ firebase.initializeApp({
 const fbDb=firebase.database();
 const FB_REF='paris2026';
 
+const LS_KEY='paris2026_v2';
+function applyData(d){
+  const toArr=v=>!v?[]:Array.isArray(v)?v:Object.values(v);
+  if(d.itinData)[1,2,3,4].forEach(day=>{if(d.itinData[day])itinData[day]=toArr(d.itinData[day]);});
+  if(d.restData)[1,2,3,4].forEach(day=>{if(d.restData[day])restData[day]=toArr(d.restData[day]);});
+  if(d.itinNextId)Object.assign(itinNextId,d.itinNextId);
+  if(d.restNextId)Object.assign(restNextId,d.restNextId);
+  if(d.exps)exps=toArr(d.exps);
+  if(d.expNid!=null)expNid=d.expNid;
+}
 function saveAll(){
-  fbDb.ref(FB_REF).set({itinData,restData,itinNextId,restNextId,exps,expNid})
-    .catch(e=>console.warn('Firebase save failed:',e));
+  const data={itinData,restData,itinNextId,restNextId,exps,expNid};
+  // 先存 localStorage（即時、不需網絡）
+  try{localStorage.setItem(LS_KEY,JSON.stringify(data));}catch(e){}
+  // 再同步 Firebase（失敗不影響本地使用）
+  fbDb.ref(FB_REF).set(data).catch(e=>console.warn('Firebase save failed:',e));
 }
 async function loadAll(){
+  // 優先嘗試 Firebase
   try{
     const snap=await fbDb.ref(FB_REF).get();
-    if(!snap.exists())return;
-    const d=snap.val();
-    // Firebase 會將 array 序列化為 {0:{...},1:{...}} object，需要轉回 array
-    const toArr=v=>!v?[]:Array.isArray(v)?v:Object.values(v);
-    if(d.itinData)[1,2,3,4].forEach(day=>{if(d.itinData[day])itinData[day]=toArr(d.itinData[day]);});
-    if(d.restData)[1,2,3,4].forEach(day=>{if(d.restData[day])restData[day]=toArr(d.restData[day]);});
-    if(d.itinNextId)Object.assign(itinNextId,d.itinNextId);
-    if(d.restNextId)Object.assign(restNextId,d.restNextId);
-    if(d.exps)exps=toArr(d.exps);
-    if(d.expNid!=null)expNid=d.expNid;
+    if(snap.exists()){applyData(snap.val());return;}
   }catch(e){console.warn('Firebase load failed:',e);}
+  // Fallback：localStorage
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){applyData(JSON.parse(raw));}
+  }catch(e){console.warn('localStorage load failed:',e);}
 }
 
 // Toggle edit mode for itinerary/restaurant card
