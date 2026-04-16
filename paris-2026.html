@@ -941,7 +941,7 @@ function renderItin(day){
   }
   itinData[day].forEach(item=>{
     const d=document.createElement('div');
-    d.className='itin-row';d.id='ir-'+day+'-'+item.id;d.draggable=true;
+    d.className='itin-row';d.id='ir-'+day+'-'+item.id;d.draggable=false;
     const nameHtml=item.url
       ?`<a href="${item.url}" target="_blank" class="itin-name-link">${item.name}</a>`
       :`<span class="itin-name-plain">${item.name}</span>`;
@@ -976,7 +976,7 @@ function renderRest(day){
   const rLabel={meal:'正餐',dessert:'甜品',bakery:'Bakery'};
   restData[day].forEach(item=>{
     const d=document.createElement('div');
-    d.className='itin-row';d.id='rr-'+day+'-'+item.id;d.draggable=true;
+    d.className='itin-row';d.id='rr-'+day+'-'+item.id;d.draggable=false;
     const catEmoji=rEmoji[item.subtag]||'🍽️';
     const catLabel=rLabel[item.subtag]||'餐廳';
     const nameHtml=item.url
@@ -1468,112 +1468,103 @@ function closeExpModal(){document.getElementById('exp-modal').classList.remove('
   document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')});
 });
 
-// ── Drag-to-reorder（行程 / 餐廳各自排序，不允許跨框拖拽）──
+// ── Drag-to-reorder via Pointer Events（mouse + touch 統一）──
+// 長按 400ms 啟動拖拽；setPointerCapture 確保 pointerup 一定觸發（不會「放唔低」）
+// 每個 list 獨立，完全禁止跨框
+function setupDragSort(list,getDataFn,setDataFn,idPattern){
+  let dragEl=null,capturedId=null,timer=null;
+  let startX=0,startY=0,potRow=null,potPid=null,hasMoved=false;
+
+  list.addEventListener('pointerdown',e=>{
+    if(e.button>0)return;
+    const row=e.target.closest('.itin-row');
+    if(!row||!list.contains(row)||e.target.closest('a,button'))return;
+    startX=e.clientX;startY=e.clientY;
+    potRow=row;potPid=e.pointerId;hasMoved=false;
+
+    if(e.pointerType==='mouse'){
+      // 滑鼠：拉動 > 4px 就開始拖拽（在 pointermove 處理）
+    }else{
+      // 觸控：長按 400ms 啟動
+      timer=setTimeout(()=>{
+        if(!potRow)return;
+        dragEl=potRow;capturedId=potPid;hasMoved=false;
+        try{list.setPointerCapture(capturedId);}catch(_){}
+        dragEl.classList.add('dragging');
+        if(navigator.vibrate)navigator.vibrate(18);
+        potRow=null;
+      },400);
+    }
+  });
+
+  list.addEventListener('pointermove',e=>{
+    const dx=Math.abs(e.clientX-startX),dy=Math.abs(e.clientY-startY);
+    // 手指移動超過 8px → 取消長按計時（進入正常滑頁模式）
+    if(timer&&(dx>8||dy>8)){clearTimeout(timer);timer=null;potRow=null;}
+
+    if(!dragEl){
+      // 滑鼠：移動超過 4px 且仍按著才啟動拖拽
+      if(potRow&&e.pointerType==='mouse'&&e.buttons===1&&(dx>4||dy>4)){
+        dragEl=potRow;capturedId=e.pointerId;hasMoved=false;
+        try{list.setPointerCapture(capturedId);}catch(_){}
+        dragEl.classList.add('dragging');
+        potRow=null;
+      }
+      return;
+    }
+    e.preventDefault(); // 鎖住頁面滾動
+
+    // 只在本框內重排，不允許跨框
+    const rows=[...list.querySelectorAll('.itin-row')].filter(r=>r!==dragEl);
+    let ins=null;
+    for(const r of rows){const b=r.getBoundingClientRect();if(e.clientY<b.top+b.height/2){ins=r;break;}}
+    if(ins?dragEl.nextSibling!==ins:dragEl!==list.lastElementChild){
+      ins?list.insertBefore(dragEl,ins):list.appendChild(dragEl);
+      hasMoved=true;
+    }
+  },{passive:false});
+
+  const end=()=>{
+    clearTimeout(timer);timer=null;potRow=null;
+    if(!dragEl)return;
+    try{if(capturedId!=null)list.releasePointerCapture(capturedId);}catch(_){}
+    capturedId=null;
+    dragEl.classList.remove('dragging');
+    if(hasMoved){
+      const data=getDataFn();
+      const newOrder=[...list.querySelectorAll('.itin-row')].map(r=>{
+        const m=r.id.match(idPattern);
+        return m?data.find(x=>x.id===parseInt(m[1])):null;
+      }).filter(Boolean);
+      if(newOrder.length===data.length){setDataFn(newOrder);saveAll();}
+    }
+    dragEl=null;hasMoved=false;
+  };
+  list.addEventListener('pointerup',end);
+  list.addEventListener('pointercancel',()=>{
+    clearTimeout(timer);timer=null;potRow=null;
+    if(dragEl){dragEl.classList.remove('dragging');dragEl=null;}
+    try{if(capturedId!=null)list.releasePointerCapture(capturedId);}catch(_){}
+    capturedId=null;hasMoved=false;
+  });
+  // 阻止 iOS 長按彈出系統選單（干擾拖拽）
+  list.addEventListener('contextmenu',e=>{if(dragEl)e.preventDefault();});
+}
+
 function setupCrossSort(day){
   const listA=document.getElementById('itin-'+day);
   const listB=document.getElementById('rest-'+day);
   if(!listA||!listB)return;
-
-  // 根據 DOM 順序更新數據陣列（只在同一框內）
-  const commitOrder=(list,origData,idPattern)=>{
-    const newOrder=[...list.querySelectorAll('.itin-row')].map(row=>{
-      const m=row.id.match(idPattern);
-      return m?origData.find(x=>x.id===parseInt(m[1])):null;
-    }).filter(Boolean);
-    return newOrder.length===origData.length?newOrder:origData;
-  };
-
-  // ── Desktop HTML5 drag（mouse）──
-  // draggable=true 已在 renderItin/renderRest 設定，只允許在同框內移動
-  let desktopDragging=null,dragSourceList=null,mobileDragActive=false;
-  [listA,listB].forEach(list=>{
-    list.addEventListener('dragstart',e=>{
-      const row=e.target.closest('.itin-row');
-      if(!row||!list.contains(row))return;
-      desktopDragging=row;dragSourceList=list;
-      e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','');
-      setTimeout(()=>desktopDragging&&desktopDragging.classList.add('dragging'),0);
-    });
-    list.addEventListener('dragover',e=>{
-      e.preventDefault(); // 允許 drop
-      if(!desktopDragging||dragSourceList!==list)return; // 阻止跨框
-      const over=e.target.closest('.itin-row');
-      if(over&&over!==desktopDragging){
-        const r=over.getBoundingClientRect();
-        list.insertBefore(desktopDragging,e.clientY<r.top+r.height/2?over:over.nextSibling);
-      }
-    });
-    list.addEventListener('drop',e=>e.preventDefault()); // 防止瀏覽器預設行為
-    list.addEventListener('dragend',()=>{
-      if(!desktopDragging)return;
-      desktopDragging.classList.remove('dragging');
-      if(!mobileDragActive){
-        if(dragSourceList===listA)
-          itinData[day]=commitOrder(listA,[...(itinData[day]||[])],/^ir-\d+-(\d+)$/);
-        else
-          restData[day]=commitOrder(listB,[...(restData[day]||[])],/^rr-\d+-(\d+)$/);
-        saveAll();
-      }
-      desktopDragging=null;dragSourceList=null;
-    });
-  });
-
-  // ── Mobile touch drag（手柄觸發，唔影響正常滑動）──
-  // 只在 Edit 模式下顯示手柄（.drag-handle），拖拽從手柄開始
-  // 好處：平時滑動完全不受影響；拖拽用手柄精確觸發
-  const col=listA.closest('.col')||listA.parentNode;
-  let tDrag=null,tSourceList=null,hasMoved=false;
-  let rafPending=false,lastTY=0;
-
-  col.addEventListener('touchstart',e=>{
-    // 必須係碰到 .drag-handle 先啟動拖拽
-    if(!e.target.closest('.drag-handle'))return;
-    const row=e.target.closest('.itin-row');
-    if(!row)return;
-    tSourceList=listA.contains(row)?listA:listB.contains(row)?listB:null;
-    if(!tSourceList)return;
-    e.preventDefault(); // 安全：用戶明確碰手柄，非意外觸發
-    tDrag=row;mobileDragActive=true;hasMoved=false;
-    row.classList.add('dragging');
-    if(navigator.vibrate)navigator.vibrate(18);
-  },{passive:false});
-
-  col.addEventListener('touchmove',e=>{
-    if(!tDrag)return;
-    e.preventDefault();
-    lastTY=e.touches[0].clientY;
-    if(rafPending)return;
-    rafPending=true;
-    requestAnimationFrame(()=>{
-      rafPending=false;
-      if(!tDrag)return;
-      const rows=[...tSourceList.querySelectorAll('.itin-row')].filter(r=>r!==tDrag);
-      let ins=null;
-      for(const r of rows){
-        const b=r.getBoundingClientRect();
-        if(lastTY<b.top+b.height/2){ins=r;break;}
-      }
-      const moved=ins
-        ?(tDrag.nextSibling!==ins&&(tSourceList.insertBefore(tDrag,ins),true))
-        :(tDrag!==tSourceList.lastElementChild&&(tSourceList.appendChild(tDrag),true));
-      if(moved)hasMoved=true;
-    });
-  },{passive:false});
-
-  const endTouch=()=>{
-    if(!tDrag){mobileDragActive=false;return;}
-    tDrag.classList.remove('dragging');
-    if(hasMoved){
-      if(tSourceList===listA)
-        itinData[day]=commitOrder(listA,[...(itinData[day]||[])],/^ir-\d+-(\d+)$/);
-      else
-        restData[day]=commitOrder(listB,[...(restData[day]||[])],/^rr-\d+-(\d+)$/);
-      saveAll();
-    }
-    tDrag=null;tSourceList=null;hasMoved=false;mobileDragActive=false;
-  };
-  col.addEventListener('touchend',endTouch,{passive:true});
-  col.addEventListener('touchcancel',endTouch,{passive:true});
+  setupDragSort(listA,
+    ()=>[...(itinData[day]||[])],
+    v=>{itinData[day]=v;},
+    /^ir-\d+-(\d+)$/
+  );
+  setupDragSort(listB,
+    ()=>[...(restData[day]||[])],
+    v=>{restData[day]=v;},
+    /^rr-\d+-(\d+)$/
+  );
 }
 
 // ── Geocode new place → auto-pin on map ──
