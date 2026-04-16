@@ -1650,10 +1650,11 @@ function toggleExpEdit(btn){
   document.querySelectorAll('.td-edit').forEach(td=>td.style.display=editing?'table-cell':'none');
 }
 
-// Expense table long-press drag（用 Pointer Events，與行程/餐廳一致）
+// Expense table long-press drag（監聽 tbl-wrap div，避免 table element 的瀏覽器兼容問題）
 function setupExpSort(){
+  const wrap=document.getElementById('exp-tbl-wrap');
   const tbody=document.getElementById('exp-body');
-  if(!tbody)return;
+  if(!wrap||!tbody)return;
   let tDrag=null,capturedId=null,tTimer=null;
   let startX=0,startY=0,potRow=null,potPid=null,hasMoved=false;
   let activeDragHandler=null;
@@ -1670,23 +1671,23 @@ function setupExpSort(){
 
   const startDrag=(row,pid)=>{
     tDrag=row;capturedId=pid;potRow=null;hasMoved=false;
-    try{tbody.setPointerCapture(pid);}catch(_){}
-    tbody.style.touchAction='none'; // 拖拽期間鎖住 scroll
+    try{wrap.setPointerCapture(pid);}catch(_){}
+    wrap.style.touchAction='none'; // 拖拽期間鎖住 scroll
     row.style.opacity='.45';row.style.outline='2px dashed var(--gold)';row.style.transform='scale(1.01)';
     if(navigator.vibrate)navigator.vibrate(25);
     activeDragHandler=onDragMove;
-    tbody.addEventListener('pointermove',activeDragHandler,{passive:false});
+    wrap.addEventListener('pointermove',activeDragHandler,{passive:false});
   };
 
   const endDrag=()=>{
     clearTimeout(tTimer);tTimer=null;potRow=null;
     if(activeDragHandler){
-      tbody.removeEventListener('pointermove',activeDragHandler,{passive:false});
+      wrap.removeEventListener('pointermove',activeDragHandler,{passive:false});
       activeDragHandler=null;
     }
-    tbody.style.touchAction=''; // 還原 scroll
+    wrap.style.touchAction=''; // 還原 scroll
     if(!tDrag)return;
-    try{if(capturedId!=null)tbody.releasePointerCapture(capturedId);}catch(_){}
+    try{if(capturedId!=null)wrap.releasePointerCapture(capturedId);}catch(_){}
     capturedId=null;
     tDrag.style.opacity='';tDrag.style.outline='';tDrag.style.transform='';
     if(hasMoved){
@@ -1698,7 +1699,7 @@ function setupExpSort(){
     tDrag=null;hasMoved=false;
   };
 
-  tbody.addEventListener('pointerdown',e=>{
+  wrap.addEventListener('pointerdown',e=>{
     if(e.button>0)return;
     const row=e.target.closest('tr[draggable]');if(!row||e.target.closest('button'))return;
     startX=e.clientX;startY=e.clientY;
@@ -1711,23 +1712,23 @@ function setupExpSort(){
   });
 
   // Passive listener：取消計時 + 滑鼠 drag 啟動
-  tbody.addEventListener('pointermove',e=>{
+  wrap.addEventListener('pointermove',e=>{
     const dx=Math.abs(e.clientX-startX),dy=Math.abs(e.clientY-startY);
     if(tTimer&&(dx>10||dy>10)){clearTimeout(tTimer);tTimer=null;potRow=null;}
     if(!potRow||tDrag)return;
     if(e.pointerType==='mouse'&&e.buttons===1&&(dx>4||dy>4))startDrag(potRow,e.pointerId);
   },{passive:true});
 
-  tbody.addEventListener('pointerup',endDrag);
-  tbody.addEventListener('pointercancel',()=>{
+  wrap.addEventListener('pointerup',endDrag);
+  wrap.addEventListener('pointercancel',()=>{
     clearTimeout(tTimer);tTimer=null;potRow=null;
-    if(activeDragHandler){tbody.removeEventListener('pointermove',activeDragHandler,{passive:false});activeDragHandler=null;}
-    tbody.style.touchAction='';
+    if(activeDragHandler){wrap.removeEventListener('pointermove',activeDragHandler,{passive:false});activeDragHandler=null;}
+    wrap.style.touchAction='';
     if(tDrag){tDrag.style.opacity='';tDrag.style.outline='';tDrag.style.transform='';tDrag=null;}
-    try{if(capturedId!=null)tbody.releasePointerCapture(capturedId);}catch(_){}
+    try{if(capturedId!=null)wrap.releasePointerCapture(capturedId);}catch(_){}
     capturedId=null;hasMoved=false;
   });
-  tbody.addEventListener('contextmenu',e=>{if(tDrag)e.preventDefault();});
+  wrap.addEventListener('contextmenu',e=>{if(tDrag)e.preventDefault();});
 }
 
 // Init
