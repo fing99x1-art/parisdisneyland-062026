@@ -1650,7 +1650,9 @@ function toggleExpEdit(btn){
   document.querySelectorAll('.td-edit').forEach(td=>td.style.display=editing?'table-cell':'none');
 }
 
-// Expense table long-press drag（監聽 tbl-wrap div，避免 table element 的瀏覽器兼容問題）
+// Expense table long-press drag
+// 所有 listener 掛在 document，令 #exp-tbl-wrap（overflow-x:auto）完全冇 listener
+// 瀏覽器就會正常處理觸碰 scroll，不會被 overflow 容器截取
 function setupExpSort(){
   const wrap=document.getElementById('exp-tbl-wrap');
   const tbody=document.getElementById('exp-body');
@@ -1671,23 +1673,23 @@ function setupExpSort(){
 
   const startDrag=(row,pid)=>{
     tDrag=row;capturedId=pid;potRow=null;hasMoved=false;
-    try{wrap.setPointerCapture(pid);}catch(_){}
-    wrap.style.touchAction='none'; // 拖拽期間鎖住 scroll
+    try{document.documentElement.setPointerCapture(pid);}catch(_){}
+    document.documentElement.style.touchAction='none'; // 鎖住頁面 scroll
     row.style.opacity='.45';row.style.outline='2px dashed var(--gold)';row.style.transform='scale(1.01)';
     if(navigator.vibrate)navigator.vibrate(25);
     activeDragHandler=onDragMove;
-    wrap.addEventListener('pointermove',activeDragHandler,{passive:false});
+    document.addEventListener('pointermove',activeDragHandler,{passive:false});
   };
 
   const endDrag=()=>{
     clearTimeout(tTimer);tTimer=null;potRow=null;
     if(activeDragHandler){
-      wrap.removeEventListener('pointermove',activeDragHandler,{passive:false});
+      document.removeEventListener('pointermove',activeDragHandler,{passive:false});
       activeDragHandler=null;
     }
-    wrap.style.touchAction=''; // 還原 scroll
+    document.documentElement.style.touchAction=''; // 還原 scroll
     if(!tDrag)return;
-    try{if(capturedId!=null)wrap.releasePointerCapture(capturedId);}catch(_){}
+    try{if(capturedId!=null)document.documentElement.releasePointerCapture(capturedId);}catch(_){}
     capturedId=null;
     tDrag.style.opacity='';tDrag.style.outline='';tDrag.style.transform='';
     if(hasMoved){
@@ -1699,7 +1701,9 @@ function setupExpSort(){
     tDrag=null;hasMoved=false;
   };
 
-  wrap.addEventListener('pointerdown',e=>{
+  // 所有常駐 listener 掛在 document（passive），不影響 wrap 的 scroll 行為
+  document.addEventListener('pointerdown',e=>{
+    if(!wrap.contains(e.target))return; // 只處理 exp 表格內的觸碰
     if(e.button>0)return;
     const row=e.target.closest('tr[draggable]');if(!row||e.target.closest('button'))return;
     startX=e.clientX;startY=e.clientY;
@@ -1709,26 +1713,27 @@ function setupExpSort(){
     }else{
       tTimer=setTimeout(()=>{if(potRow)startDrag(potRow,potPid);},500);
     }
-  });
+  },{passive:true});
 
-  // Passive listener：取消計時 + 滑鼠 drag 啟動
-  wrap.addEventListener('pointermove',e=>{
+  document.addEventListener('pointermove',e=>{
+    if(!potRow&&!tDrag)return;
     const dx=Math.abs(e.clientX-startX),dy=Math.abs(e.clientY-startY);
     if(tTimer&&(dx>10||dy>10)){clearTimeout(tTimer);tTimer=null;potRow=null;}
     if(!potRow||tDrag)return;
     if(e.pointerType==='mouse'&&e.buttons===1&&(dx>4||dy>4))startDrag(potRow,e.pointerId);
   },{passive:true});
 
-  wrap.addEventListener('pointerup',endDrag);
-  wrap.addEventListener('pointercancel',()=>{
+  document.addEventListener('pointerup',e=>{if(potRow||tDrag)endDrag();});
+  document.addEventListener('pointercancel',e=>{
+    if(!potRow&&!tDrag)return;
     clearTimeout(tTimer);tTimer=null;potRow=null;
-    if(activeDragHandler){wrap.removeEventListener('pointermove',activeDragHandler,{passive:false});activeDragHandler=null;}
-    wrap.style.touchAction='';
+    if(activeDragHandler){document.removeEventListener('pointermove',activeDragHandler,{passive:false});activeDragHandler=null;}
+    document.documentElement.style.touchAction='';
     if(tDrag){tDrag.style.opacity='';tDrag.style.outline='';tDrag.style.transform='';tDrag=null;}
-    try{if(capturedId!=null)wrap.releasePointerCapture(capturedId);}catch(_){}
+    try{if(capturedId!=null)document.documentElement.releasePointerCapture(capturedId);}catch(_){}
     capturedId=null;hasMoved=false;
   });
-  wrap.addEventListener('contextmenu',e=>{if(tDrag)e.preventDefault();});
+  document.addEventListener('contextmenu',e=>{if(tDrag&&wrap.contains(e.target))e.preventDefault();});
 }
 
 // Init
