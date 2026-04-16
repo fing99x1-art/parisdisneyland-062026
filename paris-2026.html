@@ -296,7 +296,12 @@ body::before{
 .itin-maplink:hover{opacity:1}
 .itin-acts{display:none;gap:4px;flex-shrink:0}
 .card.edit-mode .itin-acts{display:flex;opacity:1}
-.drag-handle{display:none}
+.drag-handle{
+  display:none;padding:0 6px 0 2px;cursor:grab;
+  color:var(--text2);opacity:.4;font-size:1.1rem;
+  align-items:center;flex-shrink:0;touch-action:none;user-select:none;
+}
+.card.edit-mode .drag-handle{display:inline-flex}
 .itin-row.dragging{
   opacity:.45;border:1.5px dashed var(--gold)!important;
   background:rgba(192,38,211,.08)!important;
@@ -941,6 +946,7 @@ function renderItin(day){
       ?`<a href="${item.url}" target="_blank" class="itin-name-link">${item.name}</a>`
       :`<span class="itin-name-plain">${item.name}</span>`;
     d.innerHTML=`
+      <span class="drag-handle">⠿</span>
       <span class="itin-ico">${item.icon||'📍'}</span>
       <div class="itin-info">
         <div style="display:flex;align-items:baseline;gap:7px">
@@ -977,6 +983,7 @@ function renderRest(day){
       ?`<a href="${item.url}" target="_blank" class="itin-name-link">${item.name}</a>`
       :`<span class="itin-name-plain">${item.name}</span>`;
     d.innerHTML=`
+      <span class="drag-handle">⠿</span>
       <span class="itin-ico">${catEmoji}</span>
       <div class="itin-info">
         ${nameHtml}
@@ -1467,84 +1474,72 @@ function setupCrossSort(day){
   const listB=document.getElementById('rest-'+day);
   if(!listA||!listB)return;
 
-  // 只更新排序，不重建 DOM（DOM 已由拖拽直接更新）
-  const saveOrder=(list,origData,idPattern)=>{
+  // 根據 DOM 順序更新數據陣列（只在同一框內）
+  const commitOrder=(list,origData,idPattern)=>{
     const newOrder=[...list.querySelectorAll('.itin-row')].map(row=>{
       const m=row.id.match(idPattern);
       return m?origData.find(x=>x.id===parseInt(m[1])):null;
     }).filter(Boolean);
-    // 只有長度一致才更新（防止跨框拖拽導致數據丟失）
-    if(newOrder.length===origData.length)return newOrder;
-    return origData;
+    return newOrder.length===origData.length?newOrder:origData;
   };
 
-  // Desktop HTML5 drag
-  let desktopDragging=null;
-  let dragSourceList=null; // 記住拖拽起始的框，禁止跨框
+  // ── Desktop HTML5 drag（mouse）──
+  // draggable=true 已在 renderItin/renderRest 設定，只允許在同框內移動
+  let desktopDragging=null,dragSourceList=null,mobileDragActive=false;
   [listA,listB].forEach(list=>{
     list.addEventListener('dragstart',e=>{
-      desktopDragging=e.target.closest('[draggable="true"]');
-      if(!desktopDragging)return;
-      dragSourceList=list; // 鎖定起始框
-      e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text','');
+      const row=e.target.closest('.itin-row');
+      if(!row||!list.contains(row))return;
+      desktopDragging=row;dragSourceList=list;
+      e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','');
       setTimeout(()=>desktopDragging&&desktopDragging.classList.add('dragging'),0);
     });
     list.addEventListener('dragover',e=>{
-      e.preventDefault();
-      if(!desktopDragging||dragSourceList!==list)return; // 只允許在同一框內移動
-      const over=e.target.closest('[draggable="true"]');
+      e.preventDefault(); // 允許 drop
+      if(!desktopDragging||dragSourceList!==list)return; // 阻止跨框
+      const over=e.target.closest('.itin-row');
       if(over&&over!==desktopDragging){
         const r=over.getBoundingClientRect();
         list.insertBefore(desktopDragging,e.clientY<r.top+r.height/2?over:over.nextSibling);
       }
     });
+    list.addEventListener('drop',e=>e.preventDefault()); // 防止瀏覽器預設行為
     list.addEventListener('dragend',()=>{
       if(!desktopDragging)return;
       desktopDragging.classList.remove('dragging');
       if(!mobileDragActive){
-        // 根據起始框更新對應數據
         if(dragSourceList===listA)
-          itinData[day]=saveOrder(listA,[...(itinData[day]||[])],/^ir-\d+-(\d+)$/);
+          itinData[day]=commitOrder(listA,[...(itinData[day]||[])],/^ir-\d+-(\d+)$/);
         else
-          restData[day]=saveOrder(listB,[...(restData[day]||[])],/^rr-\d+-(\d+)$/);
+          restData[day]=commitOrder(listB,[...(restData[day]||[])],/^rr-\d+-(\d+)$/);
         saveAll();
       }
       desktopDragging=null;dragSourceList=null;
     });
   });
 
-  // Mobile 長按拖拽
+  // ── Mobile touch drag（手柄觸發，唔影響正常滑動）──
+  // 只在 Edit 模式下顯示手柄（.drag-handle），拖拽從手柄開始
+  // 好處：平時滑動完全不受影響；拖拽用手柄精確觸發
   const col=listA.closest('.col')||listA.parentNode;
-  let tDrag=null,tTimer=null,tSX=0,tSY=0;
-  let hasMoved=false,mobileDragActive=false;
+  let tDrag=null,tSourceList=null,hasMoved=false;
   let rafPending=false,lastTY=0;
-  let tSourceList=null; // 記住 touch 起始框
 
   col.addEventListener('touchstart',e=>{
+    // 必須係碰到 .drag-handle 先啟動拖拽
+    if(!e.target.closest('.drag-handle'))return;
     const row=e.target.closest('.itin-row');
     if(!row)return;
     tSourceList=listA.contains(row)?listA:listB.contains(row)?listB:null;
     if(!tSourceList)return;
-    if(e.target.closest('a,button'))return;
-    if(row.closest('.card')?.classList.contains('edit-mode'))return;
-    // 不在 touchstart 攔截（否則整頁無法滑動）
-    // 只記錄起始位置，等 touchmove 確認長按後才攔截
-    tSX=e.touches[0].clientX;tSY=e.touches[0].clientY;
-    hasMoved=false;
-    tTimer=setTimeout(()=>{
-      tDrag=row;mobileDragActive=true;
-      row.classList.add('dragging');
-      if(navigator.vibrate)navigator.vibrate(25);
-    },400);
-  },{passive:true}); // passive:true → 唔攔截 touchstart，頁面可以正常滑動
+    e.preventDefault(); // 安全：用戶明確碰手柄，非意外觸發
+    tDrag=row;mobileDragActive=true;hasMoved=false;
+    row.classList.add('dragging');
+    if(navigator.vibrate)navigator.vibrate(18);
+  },{passive:false});
 
   col.addEventListener('touchmove',e=>{
-    if(!tDrag){
-      if(tTimer&&(Math.abs(e.touches[0].clientX-tSX)>8||Math.abs(e.touches[0].clientY-tSY)>8)){
-        clearTimeout(tTimer);tTimer=null;
-      }
-      return;
-    }
+    if(!tDrag)return;
     e.preventDefault();
     lastTY=e.touches[0].clientY;
     if(rafPending)return;
@@ -1552,37 +1547,33 @@ function setupCrossSort(day){
     requestAnimationFrame(()=>{
       rafPending=false;
       if(!tDrag)return;
-      const ty=lastTY;
-      // 只在起始框內排序，不跨框
       const rows=[...tSourceList.querySelectorAll('.itin-row')].filter(r=>r!==tDrag);
       let ins=null;
       for(const r of rows){
         const b=r.getBoundingClientRect();
-        if(ty<b.top+b.height/2){ins=r;break;}
+        if(lastTY<b.top+b.height/2){ins=r;break;}
       }
-      if(ins){
-        if(tDrag.nextSibling!==ins){tSourceList.insertBefore(tDrag,ins);hasMoved=true;}
-      }else{
-        if(tDrag!==tSourceList.lastElementChild){tSourceList.appendChild(tDrag);hasMoved=true;}
-      }
+      const moved=ins
+        ?(tDrag.nextSibling!==ins&&(tSourceList.insertBefore(tDrag,ins),true))
+        :(tDrag!==tSourceList.lastElementChild&&(tSourceList.appendChild(tDrag),true));
+      if(moved)hasMoved=true;
     });
   },{passive:false});
 
-  const endT=()=>{
-    clearTimeout(tTimer);tTimer=null;
+  const endTouch=()=>{
     if(!tDrag){mobileDragActive=false;return;}
     tDrag.classList.remove('dragging');
     if(hasMoved){
       if(tSourceList===listA)
-        itinData[day]=saveOrder(listA,[...(itinData[day]||[])],/^ir-\d+-(\d+)$/);
+        itinData[day]=commitOrder(listA,[...(itinData[day]||[])],/^ir-\d+-(\d+)$/);
       else
-        restData[day]=saveOrder(listB,[...(restData[day]||[])],/^rr-\d+-(\d+)$/);
+        restData[day]=commitOrder(listB,[...(restData[day]||[])],/^rr-\d+-(\d+)$/);
       saveAll();
     }
-    tDrag=null;hasMoved=false;mobileDragActive=false;tSourceList=null;
+    tDrag=null;tSourceList=null;hasMoved=false;mobileDragActive=false;
   };
-  col.addEventListener('touchend',endT);
-  col.addEventListener('touchcancel',endT);
+  col.addEventListener('touchend',endTouch,{passive:true});
+  col.addEventListener('touchcancel',endTouch,{passive:true});
 }
 
 // ── Geocode new place → auto-pin on map ──
