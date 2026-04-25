@@ -420,6 +420,9 @@ td{padding:13px 16px;font-size:.83rem;color:var(--text);vertical-align:middle}
   background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);
   border-radius:100px;font-size:.68rem;color:#6ee7b7;
 }
+/* Edit access control */
+.edit-bar .btn{display:none}
+body.edit-unlocked .edit-bar .btn{display:inline-flex}
 </style>
 </head>
 <body>
@@ -1704,8 +1707,24 @@ function setupExpSort(){
   });
 }
 
+// Edit access control
+const EDIT_KEY='goldparis';
+const EDIT_LS='paris2026_access';
+function checkEditAccess(){
+  const p=new URLSearchParams(window.location.search);
+  if(p.get('edit')===EDIT_KEY){
+    try{localStorage.setItem(EDIT_LS,'1');}catch(e){}
+    document.body.classList.add('edit-unlocked');
+    const u=new URL(window.location);u.searchParams.delete('edit');
+    window.history.replaceState({},'',u);
+    return;
+  }
+  try{if(localStorage.getItem(EDIT_LS)==='1')document.body.classList.add('edit-unlocked');}catch(e){}
+}
+
 // Init
 (async()=>{
+  checkEditAccess();
   await loadAll();
   [1,2,3,4].forEach(d=>{renderItin(d);renderRest(d);});
   renderExp();
